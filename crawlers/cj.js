@@ -1,3 +1,3 @@
-export const cjDataFetcher = async () => {
-  console.log("cj scrapper");
+export const cjDataFetcher = async (requiredScrappingItems) => {
+  console.log(requiredScrappingItems);
 };

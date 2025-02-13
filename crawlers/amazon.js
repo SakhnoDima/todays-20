@@ -37,51 +37,79 @@ const fetchWithRetry = async (url, retries = 5, delay = 5000) => {
   throw new Error("Increased number of requests. Scraping failed!");
 };
 
-export const amazonDataFetcher = async () => {
-  //TODO get current day of week then send request to WP for daily links
-  console.log(getCurrentDayOfWeek());
-
-  const responseUrls = ["amazon-devices"];
-
+const productsLinksByCategory = async (categoryUrl) => {
   const baseUrl = "https://www.amazon.com/gp/";
+
+  const fullUrl = baseUrl + categoryUrl;
+
+  const responseData = await fetchWithRetry(fullUrl);
+  const $ = cheerio.load(responseData);
+  let products = [];
+
+  $("div[id='gridItemRoot']").each((_, element) => {
+    const productLink = $(element)
+      .find("div.p13n-sc-uncoverable-faceout > a")
+      .attr("href");
+
+    if (productLink) {
+      products.push(productLink.trim());
+    }
+  });
+
+  return products;
+};
+export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
+  //TODO get current day of week then send request to WP for daily links
+  console.log("Current day", getCurrentDayOfWeek());
+  console.log("Scrapping links:", requiredScrappingItems);
+
+  const responseUrls = ["amazon-devices", "amazon-renewed", "appliances"];
+
+  const totalElementFromLink = Math.floor(
+    requiredScrappingItems / responseUrls.length
+  );
+  let productsLinks = [];
   const moversAndShakers = "movers-and-shakers/";
   const newest = "new-releases/";
 
-  const totalElementFromLink = Math.ceil(20 / responseUrls.length);
-
   for (const linkItem of responseUrls) {
-    const fullUrl = baseUrl + newest + linkItem;
-    console.log(totalElementFromLink);
+    let moversCounter = Math.max(Math.ceil(totalElementFromLink * 0.8), 1);
+    let newestCounter = Math.max(Math.ceil(totalElementFromLink * 0.2), 1);
 
-    // try {
-    //   const responseData = await fetchWithRetry(fullUrl);
-    //   console.log(responseData);
+    try {
+      const moversLinks = await productsLinksByCategory(
+        moversAndShakers + linkItem
+      );
+      for (const link of moversLinks) {
+        if (moversCounter != 0 && !productsLinks.includes(link)) {
+          productsLinks.push(link);
+          moversCounter--;
+        }
+      }
 
-    //   const $ = cheerio.load(responseData);
-    //   let products = [];
+      const newestLinks = await productsLinksByCategory(newest + linkItem);
+      for (const link of newestLinks) {
+        if (newestCounter != 0 && !productsLinks.includes(link)) {
+          productsLinks.push(link);
+          newestCounter--;
+        }
+      }
 
-    //   $("div[id='gridItemRoot']").each((index, element) => {
-    //     const productLink = $(element)
-    //       .find("div.p13n-sc-uncoverable-faceout > a")
-    //       .attr("href")
-    //       .trim();
-
-    //     if (productLink) {
-    //       products.push(productLink);
-    //     }
-    //   });
-
-    //   fs.writeFileSync(
-    //     "amazon_products_m.json",
-    //     JSON.stringify(products, null, 2),
-    //     "utf-8"
-    //   );
-
-    //   console.log("Дані збережено у файл amazon_products.json");
-    // } catch (error) {
-    //   console.error("amazon scrapping", error);
-    // }
+      console.log(`Data links for category -  ${linkItem} saved!`);
+    } catch (error) {
+      console.error("amazon scrapping", error);
+    }
   }
+
+  productsLinks = productsLinks.slice(0, requiredScrappingItems); // should have specified quantity
+
+  fs.writeFileSync(
+    "amazon_products.json",
+    JSON.stringify([...productsLinks], null, 2),
+    "utf-8"
+  );
+
+  console.log(productsLinks);
 };
 
 amazonDataFetcher();

@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import dotenv from "dotenv";
+import { PRODUCTS_PER_DAY } from "../constants/index.js";
 
 dotenv.config();
 
@@ -35,9 +36,10 @@ class TaskSchedulerService {
   }
 
   async #runTasksSequentially() {
+    const requiredScrappingItems = PRODUCTS_PER_DAY / this.#tasks.length;
     for (const task of this.#tasks) {
       try {
-        await task();
+        await task(requiredScrappingItems);
       } catch (error) {
         console.error("CRAWLER ERROR! Check logs", error);
       }
