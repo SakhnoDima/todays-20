@@ -4,7 +4,11 @@ import fs from "fs";
 
 import { delayer, getCurrentDayOfWeek } from "../assistants/helpers.js";
 
+const baseUrl = "https://www.amazon.com/";
+
 const fetchWithRetry = async (url, retries = 5, delay = 5000) => {
+  console.log("Scrapping url:", url);
+
   for (let i = 0; i < retries; i++) {
     try {
       const response = await axios.get(url, {
@@ -32,15 +36,15 @@ const fetchWithRetry = async (url, retries = 5, delay = 5000) => {
       } else {
         throw error;
       }
+    } finally {
+      await delayer(delay);
     }
   }
   throw new Error("Increased number of requests. Scraping failed!");
 };
 
 const productsLinksByCategory = async (categoryUrl) => {
-  const baseUrl = "https://www.amazon.com/gp/";
-
-  const fullUrl = baseUrl + categoryUrl;
+  const fullUrl = baseUrl + "gp/" + categoryUrl;
 
   const responseData = await fetchWithRetry(fullUrl);
   const $ = cheerio.load(responseData);
@@ -58,12 +62,49 @@ const productsLinksByCategory = async (categoryUrl) => {
 
   return products;
 };
-export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
+
+const singleProductScrapper = async (links) => {
+  //TODO remove after testing
+  // const productsLinks = JSON.parse(
+  //   fs.readFileSync("amazon_products.json", "utf-8")
+  // );
+
+  const scrappedData = [];
+
+  for (const link of links) {
+    let data = {
+      id: link.split("/")[1],
+    };
+
+    const responseData = await fetchWithRetry(baseUrl + link);
+    const $ = cheerio.load(responseData);
+    try {
+      data.title = $("#productTitle").text().trim();
+      data.img = $("#landingImage").attr("src");
+
+      const description = [];
+      $(
+        "ul.a-unordered-list.a-vertical.a-spacing-mini li.a-spacing-mini span.a-list-item"
+      ).each((_, element) => {
+        description.push($(element).text().trim());
+      });
+
+      data.description = description.join(" ");
+      scrappedData.push(data);
+      await delayer(1000);
+    } catch (error) {
+      console.error("Scrapping single Item data error", error.message);
+    }
+  }
+  return scrappedData;
+};
+
+export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
   //TODO get current day of week then send request to WP for daily links
   console.log("Current day", getCurrentDayOfWeek());
   console.log("Scrapping links:", requiredScrappingItems);
 
-  const responseUrls = ["amazon-devices", "amazon-renewed", "appliances"];
+  const responseUrls = ["amazon-devices"];
 
   const totalElementFromLink = Math.floor(
     requiredScrappingItems / responseUrls.length
@@ -103,9 +144,12 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
 
   productsLinks = productsLinks.slice(0, requiredScrappingItems); // should have specified quantity
 
+  const productsData = await singleProductScrapper(productsLinks);
+  console.log(productsData);
+
   fs.writeFileSync(
-    "amazon_products.json",
-    JSON.stringify([...productsLinks], null, 2),
+    "amazon_products_details.json",
+    JSON.stringify([...productsData], null, 2),
     "utf-8"
   );
 
