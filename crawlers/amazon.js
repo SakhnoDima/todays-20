@@ -3,7 +3,7 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 
 import { delayer, getCurrentDayOfWeek } from "../assistants/helpers.js";
-import { daysOfWeek } from "../constants/index.js";
+// import { daysOfWeek } from "../constants/index.js";
 
 const baseUrl = "https://www.amazon.com/";
 
@@ -52,19 +52,35 @@ const productsLinksByCategory = async (categoryUrl) => {
   let products = [];
 
   $("div[id='gridItemRoot']").each((_, element) => {
+    const dataInHighCategory = {
+      fame: 5,
+    };
+
     const productLink = $(element)
       .find("div.p13n-sc-uncoverable-faceout > a")
       .attr("href");
 
+    if (categoryUrl.includes("movers-and-shakers")) {
+      const rankPercent = $(element)
+        .find("div.a-row.a-spacing-none.aok-inline-block > span > span")
+        .text()
+        .match(/\d+/)?.[0];
+
+      if (rankPercent && rankPercent > 500) {
+        dataInHighCategory.fame = 15;
+      }
+    }
+
     if (productLink) {
-      products.push(productLink.trim());
+      dataInHighCategory.link = productLink.trim();
+      products.push(dataInHighCategory);
     }
   });
 
   return products;
 };
 
-const singleProductScrapper = async (links) => {
+const singleProductScrapper = async (products) => {
   //TODO remove after testing
   // const productsLinks = JSON.parse(
   //   fs.readFileSync("amazon_products.json", "utf-8")
@@ -72,17 +88,22 @@ const singleProductScrapper = async (links) => {
 
   const scrappedData = [];
 
-  for (const link of links) {
+  for (const product of products) {
     let data = {
-      id: link.split("/")[1],
+      id: product.link.split("/")[1],
+      fame: product.fame,
     };
 
-    const responseData = await fetchWithRetry(baseUrl + link);
+    const responseData = await fetchWithRetry(baseUrl + product.link);
     const $ = cheerio.load(responseData);
     try {
+      //product title
       data.title = $("#productTitle").text().trim();
+
+      //product img
       data.img = $("#landingImage").attr("src");
 
+      //product description
       const description = [];
       $(
         "ul.a-unordered-list.a-vertical.a-spacing-mini li.a-spacing-mini span.a-list-item"
@@ -91,6 +112,48 @@ const singleProductScrapper = async (links) => {
       });
 
       data.description = description.join(" ");
+
+      //product topBrand
+      const topBrandFame = $(
+        "#brandInsights_feature_div_3 > div > div > h2"
+      ).text();
+      if (topBrandFame) {
+        data.fame += 10;
+      }
+
+      //TODO product pastMonthBought
+      // const pastMonthBought = $(
+      //   "#social-proofing-faceout-title-tk_bought > span.a-text-bold"
+      // ).text();
+
+      // if (!pastMonthBought) {
+      //   data.fame += 1;
+      //   console.log("no");
+      // } else if (
+      //   pastMonthBought &&
+      //   !pastMonthBought.includes("K") &&
+      //   !pastMonthBought.includes("M")
+      // ) {
+      //   data.fame += 1;
+      //   console.log("less");
+      // } else if (pastMonthBought.match(/\d+/)?.[0] < 10) {
+      //   data.fame += pastMonthBought.match(/\d+/)?.[0] * 2;
+      //   console.log(pastMonthBought.match(/\d+/)?.[0]);
+      // } else if (pastMonthBought.match(/\d+/)?.[0] >= 10) {
+      //   data.fame += 20;
+      // }
+
+      //product totalRating
+      const totalRating = $("#acrCustomerReviewText").text();
+      if (totalRating) {
+        data.fame +=
+          Number(totalRating.match(/\d+/)?.[0]) <= 10
+            ? Number(totalRating.match(/\d+/)?.[0])
+            : 10;
+      }
+
+      //TODO product reviews
+
       scrappedData.push(data);
       await delayer(1000);
     } catch (error) {
@@ -100,11 +163,11 @@ const singleProductScrapper = async (links) => {
   return scrappedData;
 };
 
-export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
+export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
+  let responseUrls = [];
+
   const currentDay = getCurrentDayOfWeek();
   console.log("Current day", currentDay);
-
-  let responseUrls = [];
 
   const departments = await axios.get(
     `https://bjn.syi.mybluehost.me/wp-json/departments/get-daily?day=${currentDay}&marketplace=amazon'`
@@ -131,17 +194,24 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       const moversLinks = await productsLinksByCategory(
         moversAndShakers + linkItem
       );
-      for (const link of moversLinks) {
-        if (moversCounter !== 0 && !productsLinks.includes(link)) {
-          productsLinks.push(link);
+      for (const linkItem of moversLinks) {
+        if (
+          moversCounter !== 0 &&
+          !productsLinks.some((item) => item.link === linkItem.lin)
+        ) {
+          productsLinks.push(linkItem);
           moversCounter--;
         }
       }
 
       const newestLinks = await productsLinksByCategory(newest + linkItem);
-      for (const link of newestLinks) {
-        if (newestCounter !== 0 && !productsLinks.includes(link)) {
-          productsLinks.push(link);
+
+      for (const linkItem of newestLinks) {
+        if (
+          newestCounter !== 0 &&
+          !productsLinks.some((item) => item.link === linkItem.link)
+        ) {
+          productsLinks.push(linkItem);
           newestCounter--;
         }
       }
@@ -160,6 +230,5 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
   //   JSON.stringify([...productsData], null, 2),
   //   "utf-8"
   // );
-
-  console.log(productsLinks);
 };
+amazonDataFetcher();
