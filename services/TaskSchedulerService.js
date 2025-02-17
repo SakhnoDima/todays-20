@@ -25,7 +25,7 @@ class TaskSchedulerService {
   }
 
   removeTask(scrappingService) {
-    this.tasks = this.tasks.filter((t) => t !== task);
+    this.#tasks = this.#tasks.filter((t) => t !== task);
     console.log(`Task removed`);
     this.#manageCronJob();
   }
