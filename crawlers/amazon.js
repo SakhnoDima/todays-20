@@ -122,7 +122,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
         moversAndShakers + linkItem
       );
       for (const link of moversLinks) {
-        if (moversCounter != 0 && !productsLinks.includes(link)) {
+        if (moversCounter !== 0 && !productsLinks.includes(link)) {
           productsLinks.push(link);
           moversCounter--;
         }
@@ -130,7 +130,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
 
       const newestLinks = await productsLinksByCategory(newest + linkItem);
       for (const link of newestLinks) {
-        if (newestCounter != 0 && !productsLinks.includes(link)) {
+        if (newestCounter !== 0 && !productsLinks.includes(link)) {
           productsLinks.push(link);
           newestCounter--;
         }
@@ -147,11 +147,11 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
   const productsData = await singleProductScrapper(productsLinks);
   console.log(productsData);
 
-  fs.writeFileSync(
-    "amazon_products_details.json",
-    JSON.stringify([...productsData], null, 2),
-    "utf-8"
-  );
+  // fs.writeFileSync(
+  //   "amazon_products_details.json",
+  //   JSON.stringify([...productsData], null, 2),
+  //   "utf-8"
+  // );
 
   console.log(productsLinks);
 };
