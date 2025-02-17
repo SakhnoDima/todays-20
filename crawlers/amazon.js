@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import fs from "fs";
 
 import { delayer, getCurrentDayOfWeek } from "../assistants/helpers.js";
+import { daysOfWeek } from "../constants/index.js";
 
 const baseUrl = "https://www.amazon.com/";
 
@@ -100,11 +101,20 @@ const singleProductScrapper = async (links) => {
 };
 
 export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
-  //TODO get current day of week then send request to WP for daily links
-  console.log("Current day", getCurrentDayOfWeek());
-  console.log("Scrapping links:", requiredScrappingItems);
+  const currentDay = getCurrentDayOfWeek();
+  console.log("Current day", currentDay);
 
-  const responseUrls = ["amazon-devices"];
+  let responseUrls = [];
+
+  const departments = await axios.get(
+    `https://bjn.syi.mybluehost.me/wp-json/departments/get-daily?day=${currentDay}&marketplace=amazon'`
+  );
+
+  if (departments.data.status === "OK") {
+    responseUrls = departments.data.data;
+  }
+
+  console.log("Scrapping links:", requiredScrappingItems);
 
   const totalElementFromLink = Math.floor(
     requiredScrappingItems / responseUrls.length
@@ -135,8 +145,6 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
           newestCounter--;
         }
       }
-
-      console.log(`Data links for category -  ${linkItem} saved!`);
     } catch (error) {
       console.error("amazon scrapping", error);
     }
