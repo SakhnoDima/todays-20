@@ -10,31 +10,38 @@ export const initializeScrapping = (req, res) => {
   const results = [];
 
   for (const service of affiliateServices) {
-    if (!CRAWLERS[service.marketplace]) {
+    if (!service.marketplace || !CRAWLERS.hasOwnProperty(service.marketplace)) {
       results.push({
         service,
         status: STATUS.error,
-        message: `Scrapping for ${service.marketplace} not provided!`,
+        message: `Scraping for ${
+          service.marketplace || "unknown"
+        } not provided!`,
       });
       continue;
     }
 
-    if (!service.status && CRAWLERS[service.marketplace]) {
-      scrappingScheduler.removeTask(CRAWLERS[service.marketplace]);
+    const marketplace = service.marketplace;
+
+    if (!service.status && scrappingScheduler.getTask(CRAWLERS[marketplace])) {
+      scrappingScheduler.removeTask(CRAWLERS[marketplace]);
       results.push({
         service,
         status: STATUS.success,
-        message: `Scraping for ${service.marketplace} stopped!`,
+        message: `Scraping for ${marketplace} stopped!`,
       });
       continue;
+    } else if (
+      service.status &&
+      !scrappingScheduler.getTask(CRAWLERS[marketplace])
+    ) {
+      scrappingScheduler.addTask(CRAWLERS[marketplace]);
+      results.push({
+        service,
+        status: STATUS.success,
+        message: `Scraping for ${marketplace} started!`,
+      });
     }
-
-    scrappingScheduler.addTask(CRAWLERS[service.marketplace]);
-    results.push({
-      service,
-      status: STATUS.success,
-      message: `Scraping for ${service.marketplace} started!`,
-    });
   }
 
   return res.status(200).json({
