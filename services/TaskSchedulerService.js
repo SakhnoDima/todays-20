@@ -20,13 +20,14 @@ class TaskSchedulerService {
     this.#timezone = timezone;
   }
 
-  removeAllTasks() {
-    this.#tasks = [];
-    this.#manageCronJob();
-  }
-
   getTask(scrappingService) {
     return this.#tasks.includes(scrappingService) || null;
+  }
+
+  removeTask(scrappingService) {
+    this.tasks = this.tasks.filter((t) => t !== task);
+    console.log(`Task removed`);
+    this.#manageCronJob();
   }
 
   addTask(scrappingService) {

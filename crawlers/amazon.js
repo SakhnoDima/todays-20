@@ -155,5 +155,3 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
 
   console.log(productsLinks);
 };
-
-amazonDataFetcher();

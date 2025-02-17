@@ -9,52 +9,36 @@ export const initializeScrapping = (req, res) => {
 
   const results = [];
 
-  scrappingScheduler.removeAllTasks();
-
-  affiliateServices.map((service) => {
-    if (!CRAWLERS[service]) {
+  for (const service of affiliateServices) {
+    if (!CRAWLERS[service.marketplace]) {
       results.push({
         service,
         status: STATUS.error,
-        message: `Scrapping for ${service} not provide!`,
+        message: `Scrapping for ${service.marketplace} not provided!`,
       });
-      return;
+      continue;
     }
 
-    scrappingScheduler.addTask(CRAWLERS[service]);
+    if (!service.status && CRAWLERS[service.marketplace]) {
+      scrappingScheduler.removeTask(CRAWLERS[service.marketplace]);
+      results.push({
+        service,
+        status: STATUS.success,
+        message: `Scraping for ${service.marketplace} stopped!`,
+      });
+      continue;
+    }
+
+    scrappingScheduler.addTask(CRAWLERS[service.marketplace]);
     results.push({
       service,
       status: STATUS.success,
-      message: `Scraping for ${service} started!`,
+      message: `Scraping for ${service.marketplace} started!`,
     });
-  });
+  }
 
   return res.status(200).json({
     status: STATUS.success,
     results,
   });
 };
-
-// export const removeUrl = (req, res) => {
-//   const { location } = req.body;
-
-//   if (!location) {
-//     return res.status(400).json({
-//       status: STATUS.error,
-//       message: `Required filed is not provided!`,
-//     });
-//   }
-
-//   if (scrappingScheduler.tasks[location]) {
-//     scrappingScheduler.removeUrl(location);
-//     return res.status(200).json({
-//       status: STATUS.success,
-//       message: `Scraping for ${location} was stopped!`,
-//     });
-//   } else {
-//     return res.status(400).json({
-//       status: STATUS.error,
-//       message: `Scraping for ${location} was already removed!`,
-//     });
-//   }
-// };
