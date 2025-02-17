@@ -33,6 +33,7 @@ class TaskSchedulerService {
   addTask(scrappingService) {
     this.#tasks.push(scrappingService);
     console.log(`Task added!`);
+    console.log(this.#tasks);
     this.#manageCronJob();
   }
 
