@@ -6,6 +6,7 @@ const scrappingScheduler = new TaskSchedulerService();
 
 export const initializeScrapping = (req, res) => {
   const { affiliateServices } = req.body;
+  console.log(affiliateServices);
 
   const results = [];
 
