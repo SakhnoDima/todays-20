@@ -26,7 +26,7 @@ class TaskSchedulerService {
 
   removeTask(scrappingService) {
     this.#tasks = this.#tasks.filter((t) => t !== scrappingService);
-    console.log(this.#tasks);
+    console.log("Task removed!");
     this.#manageCronJob();
   }
 
@@ -61,12 +61,14 @@ class TaskSchedulerService {
         );
         this.#mainTask.start();
         console.log("Cron started!");
+        console.log(this.#tasks);
       }
     } else {
       if (this.#mainTask) {
         this.#mainTask.stop();
         this.#mainTask = null;
         console.log("Cron stopped!");
+        console.log(this.#tasks);
       }
     }
   }
