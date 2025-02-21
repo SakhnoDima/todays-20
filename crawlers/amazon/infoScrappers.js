@@ -1,45 +1,235 @@
-import axios from "axios";
 import * as cheerio from "cheerio";
-import qs from "qs";
+import fs from "fs/promises";
+
 import dotenv from "dotenv";
 
-import { fetchWithRetry } from "./helpers.js";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+import { fetchWithRetry, isRecentReview } from "./helpers.js";
 import { delayer } from "../../assistants/helpers.js";
 
 dotenv.config();
 
-const getReviewsData = async (asin) => {
-  let data = qs.stringify({
-    asin: "B0CHH6Y67Y",
-    sortBy: "recent",
-    scope: "reviewsAjax2",
+const baseUrl = "https://www.amazon.com";
+
+const extractTableData = async (
+  page,
+  selector,
+  keySelector,
+  valueSelector,
+  targetObject
+) => {
+  const rows = await page.$$(selector);
+  if (rows.length === 0) {
+    return;
+  }
+  for (const row of rows) {
+    const keyElement = await row.$(keySelector);
+    const valueElement = await row.$(valueSelector);
+
+    if (keyElement && valueElement) {
+      const key = (
+        await page.evaluate(
+          (el) => el.innerText.trim().replace(/\n/g, " "),
+          keyElement
+        )
+      ).replace(":", "");
+      const value = await page.evaluate(
+        (el) => el.innerText.trim().replace(/\n/g, " "),
+        valueElement
+      );
+
+      targetObject[key] = value;
+    }
+  }
+};
+
+const getDetailsFromBrowser = async (singleLink) => {
+  puppeteer.use(StealthPlugin());
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--window-size=1440,760",
+    ],
   });
 
-  let config = {
-    method: "post",
-    maxBodyLength: Infinity,
-    url: "https://www.amazon.com/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie:
-        'i18n-prefs=USD; lc-main=en_US; session-id=130-7562463-7516922; session-id-time=2082787201l; session-token=AtS43uUx4sn+Na4KKWfafKK6TyFld2mUcJ1S22rTKrRUIO8t+teNpgwpYN8tNRRKnI3PEgYxhhij+tH2gqxEv9SPfC16ELvFyr1C3XnSHL2BBYWx82duf+MEq7hdE1mbIBQnnSimPZNYS9I9UIgaCHOYz9appIl9u2C2S/3ZZQmYK2yJyduo0NafPjsRQA+ZsoUE3Pa/rFnhEJZK2E+5M+FxR70SIyT+MBA3OrR0uWxIXBbo+fflrQdPwBKxbT+S4Gr2zpEoUDVjoMiMRSp3+RRhimkg0MnQngPdEcFBE9YhxKwcrY8y1yyerBaNqVbl0ZYCoLJrjM0dGG7itZtyHOHUVPyFUam7; sp-cdn="L5Z9:UA"; ubid-main=134-7284545-7209841; JSESSIONID=D347F020575A0D07CF362C0B000245EF',
-    },
-    data: data,
-  };
-  console.log(config);
+  const [page] = await browser.pages();
+  await page.setViewport({
+    width: 1440,
+    height: 760,
+    deviceScaleFactor: 1,
+  });
 
-  axios
-    .request(config)
-    .then((response) => {
-      console.log(JSON.stringify(response.data));
-    })
-    .catch((error) => {
-      console.log(error);
-    });
+  const maxRetries = 5;
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      await page.goto(`${baseUrl}/${singleLink}`, {
+        waitUntil: "networkidle2",
+        timeout: 500000,
+      });
+
+      let responseData = {
+        fame: 0,
+        images: [],
+        info: {},
+        amazonInfo: {},
+      };
+
+      //images
+      const allScripts = await page.evaluate(() => {
+        const scripts = [...document.scripts].map((s) => s.textContent);
+        return scripts.find((text) => text.includes("jQuery.parseJSON"));
+      });
+
+      if (allScripts) {
+        const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
+        if (match && match[1]) {
+          try {
+            const jsonString = match[1]
+              .replace(/\\"/g, '"')
+              .replace(/\\n/g, "")
+              .replace(/\\r/g, "")
+              .replace(/\\t/g, "")
+              .replace(/\\\\/g, "\\");
+
+            const matchesImgs =
+              jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
+            const uniqueLinks = [
+              ...new Set(
+                matchesImgs.map(
+                  (m) => m.match(/"hiRes":"(https:\/\/[^"]+)"/)[1]
+                )
+              ),
+            ];
+            responseData.images = [...uniqueLinks.slice(0, 4)];
+          } catch (error) {
+            console.error("JSON Parsing Error:", error);
+          }
+        } else {
+          console.log("No JSON data found in script.");
+        }
+      }
+
+      // reviews
+      const response = await page.evaluate(async (asin) => {
+        const res = await fetch(
+          "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              asin: asin,
+              sortBy: "recent",
+              scope: "reviewsAjax2",
+            }),
+          }
+        );
+        return res.text();
+      }, singleLink.split("/")[3]);
+
+      if (response) {
+        const arrReviews = response.replace("\n", "").split("&&&").splice(3);
+
+        arrReviews.forEach((el) => {
+          const newElem = el.replace(/\\/g, "");
+
+          const matchRating = newElem.match(
+            /<span class="a-icon-alt">(.*?)<\/span>/
+          );
+          const matchDay = newElem.match(
+            /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
+          );
+
+          if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
+            const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
+            if (ratingMatch) {
+              const rating = parseFloat(ratingMatch[0]);
+
+              const isLas10DaysReview = isRecentReview(matchDay[1]);
+
+              responseData.fame += isLas10DaysReview ? 2 : 1;
+
+              responseData.fame += rating;
+            }
+          }
+        });
+        console.log("Review rating:", responseData.fame);
+      }
+
+      // productInfo
+      if (
+        await page.$("#productOverview_feature_div > div > table > tbody > tr")
+      ) {
+        await extractTableData(
+          page,
+          "#productOverview_feature_div > div > table > tbody > tr",
+          "td.a-span3 span.a-size-base.a-text-bold",
+          "td.a-span9 span.a-size-base.po-break-word",
+          responseData.info
+        );
+      } else if (
+        await page.$("#productDetails_techSpec_section_1 > tbody > tr")
+      ) {
+        await extractTableData(
+          page,
+          "#productDetails_techSpec_section_1 > tbody > tr",
+          "th",
+          "td",
+          responseData.info
+        );
+      }
+
+      await extractTableData(
+        page,
+        "#tech > div:nth-child(4) > div > div:nth-child(1) > div > table > tbody > tr",
+        "td:nth-child(1) p strong",
+        "td:nth-child(2) p",
+        responseData.amazonInfo
+      );
+
+      // descriptions
+      const descriptionElement = await page.$("#productDescription");
+      if (descriptionElement) {
+        const description = await page.$eval("#productDescription", (el) =>
+          el.innerText.trim().replace(/\n/g, " ")
+        );
+        if (description.length > 0) {
+          responseData.description = description;
+        }
+      }
+
+      console.log(responseData);
+
+      await browser.close();
+      return responseData;
+    } catch (error) {
+      console.error(`Помилка під час переходу (спроба ${attempt + 1}):`, error);
+      attempt++;
+      if (attempt < maxRetries) {
+        console.log(`Повторний перехід через ${delay / 1000} сек...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        console.error(
+          `Не вдалося завантажити сторінку після ${maxRetries} спроб.`
+        );
+        await browser.close();
+        return { fame: 0, images: [], info: {}, amazonInfo: {} };
+      }
+    }
+  }
 };
 
 export const productsLinksByCategory = async (categoryUrl) => {
-  const fullUrl = "https://www.amazon.com/gp/" + categoryUrl;
+  const fullUrl = `${baseUrl}/gp/` + categoryUrl;
 
   const responseData = await fetchWithRetry(fullUrl);
   const $ = cheerio.load(responseData);
@@ -58,9 +248,15 @@ export const productsLinksByCategory = async (categoryUrl) => {
       const rankPercent = $(element)
         .find("div.a-row.a-spacing-none.aok-inline-block > span > span")
         .text()
+        .replace(/[^0-9,]/g, "")
+        .replace(",", "")
         .match(/\d+/)?.[0];
 
-      if (rankPercent && rankPercent > 500) {
+      const rankValue = rankPercent ? parseInt(rankPercent, 10) : 0;
+
+      if (rankValue > 100 && rankValue < 200) {
+        dataInHighCategory.fame = 10;
+      } else if (rankValue > 200) {
         dataInHighCategory.fame = 15;
       }
     }
@@ -75,32 +271,25 @@ export const productsLinksByCategory = async (categoryUrl) => {
 };
 
 export const singleProductScrapper = async (products) => {
-  //TODO remove after testing
-  // const productsLinks = JSON.parse(
-  //   fs.readFileSync("amazon_products.json", "utf-8")
-  // );
-
   const scrappedData = [];
 
   for (const product of products) {
     let data = {
-      id: product.link.split("/")[1].toLowerCase(),
+      id: product.link.split("/")[3],
       fame: product.fame,
-      link: `https://www.amazon.com${product.link.split("/ref=")[0]}?tag=${
+      link: `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
         process.env.AFF_TEG
       }`,
     };
 
-    const responseData = await fetchWithRetry(
-      `https://www.amazon.com/${product.link}`
-    );
+    const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
     const $ = cheerio.load(responseData);
     try {
       //product title
       data.title = $("#productTitle").text().trim();
 
       //product img
-      data.img = $("#landingImage").attr("src");
+      data.images = [$("#landingImage").attr("src")];
 
       //product description
       const description = [];
@@ -120,39 +309,74 @@ export const singleProductScrapper = async (products) => {
         data.fame += 10;
       }
 
-      //TODO product pastMonthBought
-      // const pastMonthBought = $(
-      //   "#social-proofing-faceout-title-tk_bought > span.a-text-bold"
-      // ).text();
-
-      // if (!pastMonthBought) {
-      //   data.fame += 1;
-      //   console.log("no");
-      // } else if (
-      //   pastMonthBought &&
-      //   !pastMonthBought.includes("K") &&
-      //   !pastMonthBought.includes("M")
-      // ) {
-      //   data.fame += 1;
-      //   console.log("less");
-      // } else if (pastMonthBought.match(/\d+/)?.[0] < 10) {
-      //   data.fame += pastMonthBought.match(/\d+/)?.[0] * 2;
-      //   console.log(pastMonthBought.match(/\d+/)?.[0]);
-      // } else if (pastMonthBought.match(/\d+/)?.[0] >= 10) {
-      //   data.fame += 20;
-      // }
-
       //product totalRating
       const totalRating = $("#acrCustomerReviewText").text();
       if (totalRating) {
-        data.fame +=
-          Number(totalRating.match(/\d+/)?.[0]) <= 10
-            ? Number(totalRating.match(/\d+/)?.[0])
-            : 10;
+        const ratingNumber = Number(
+          totalRating.replace(/,/g, "").match(/\d+/)?.[0]
+        );
+
+        if (!isNaN(ratingNumber)) {
+          console.log("Product rating:", ratingNumber);
+
+          if (ratingNumber < 1000) {
+            data.fame += 1;
+          } else {
+            data.fame += Math.min(11, Math.floor(ratingNumber / 1000));
+          }
+        }
       }
 
-      //TODO product reviews
-      const fame = await getReviewsData(product.link.split("/")[3]);
+      //product reviews
+      const browserData = await getDetailsFromBrowser(product.link);
+
+      //update fame
+      data.fame += browserData.fame;
+
+      //update description
+      data.description += " " + browserData.description;
+
+      //update images
+      if (browserData.images.length > 0) {
+        data.images = browserData.images;
+      }
+
+      //product info
+
+      if (browserData.info && Object.keys(browserData.info).length > 0) {
+        console.log("browserData.info", browserData.info);
+
+        data.info = browserData.info;
+      }
+      if (
+        browserData.amazonInfo &&
+        Object.keys(browserData.amazonInfo).length > 0
+      ) {
+        console.log("browserData.amazonInfo", browserData.amazonInfo);
+        data.amazonInfo = browserData.amazonInfo;
+      }
+
+      // amazonsChoice or newRelease or bestSeller
+      const amazonsChoice = $(
+        "#acBadge_feature_div > div > span.a-declarative > span.a-size-small.aok-float-left.ac-badge-rectangle"
+      );
+      const zeitgeistBadge = $(
+        "#zeitgeistBadge_feature_div > div > a > i"
+      ).text();
+
+      if (amazonsChoice.length) {
+        console.log("Amazon choice!");
+        data.fame += 4;
+        data.badge = "Amazon Choice";
+      } else if (zeitgeistBadge.trim().includes("#1 Best Seller")) {
+        console.log("Amazon best seller!");
+        data.fame += 6;
+        data.badge = "Best Seller";
+      } else if (zeitgeistBadge.trim().includes("#1 New Release")) {
+        console.log("New Release!");
+        data.fame += 4;
+        data.badge = "New Release";
+      }
 
       scrappedData.push(data);
       await delayer(1000);
@@ -162,8 +386,3 @@ export const singleProductScrapper = async (products) => {
   }
   return scrappedData;
 };
-getReviewsData(
-  "/Amazon-Fire-Stick-2-Year-Protection/dp/B0CHH6Y67Y/ref=zg_bsms_g_amazon-devices_d_sccl_1/130-6647065-5636324?psc=1".split(
-    "/"
-  )[3]
-);

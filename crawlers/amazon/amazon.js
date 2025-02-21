@@ -28,6 +28,8 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
   const totalElementFromLink = Math.floor(
     requiredScrappingItems / responseUrls.length
   );
+  console.log("totalElementFromLink:", totalElementFromLink);
+
   let productsLinks = [];
   const moversAndShakers = "movers-and-shakers/";
   const newest = "new-releases/";
@@ -40,6 +42,12 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
       const moversLinks = await productsLinksByCategory(
         moversAndShakers + linkItem
       );
+      const newestLinks = await productsLinksByCategory(newest + linkItem);
+
+      if (moversLinks.length === 0) newestCounter += moversCounter;
+
+      if (newestLinks.length === 0) moversCounter += newestCounter;
+
       for (const linkItem of moversLinks) {
         if (
           moversCounter !== 0 &&
@@ -49,9 +57,6 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
           moversCounter--;
         }
       }
-
-      const newestLinks = await productsLinksByCategory(newest + linkItem);
-
       for (const linkItem of newestLinks) {
         if (
           newestCounter !== 0 &&
@@ -70,13 +75,9 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
 
   const productsData = await singleProductScrapper(productsLinks);
 
-  console.log(productsData);
-
   for (const product of productsData) {
     try {
-      console.log("Product", product);
       const content = await createContent(product);
-      console.log("New content", content);
       product.content = {
         title: content.title,
         content: content.content,
@@ -84,13 +85,15 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
       delete product.title;
       delete product.description;
       product.category = content.category;
+
+      //TODO отправить данные на WP
     } catch (error) {
       console.log("Error processing product content", product.title, error);
     }
   }
-  //TODO отправить данные на WP
+  //TODO удалить
   fs.writeFileSync(
-    "amazon_products_data_18.json",
+    "amazon_products_data_23.json",
     JSON.stringify([...productsData], null, 2),
     "utf-8"
   );

@@ -37,3 +37,19 @@ export const fetchWithRetry = async (url, retries = 5, delay = 5000) => {
   }
   throw new Error("Increased number of requests. Scraping failed!");
 };
+
+export const isRecentReview = (reviewString) => {
+  const datePattern = /on (\w+ \d{1,2}, \d{4})/;
+  const match = reviewString.match(datePattern);
+
+  if (match) {
+    const reviewDate = new Date(match[1]);
+    const currentDate = new Date();
+    const diffTime = currentDate - reviewDate;
+    const diffDays = diffTime / (1000 * 3600 * 24);
+
+    return diffDays <= 11;
+  }
+
+  return false;
+};
