@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import fs from "fs/promises";
 
 import dotenv from "dotenv";
 
@@ -263,6 +262,8 @@ export const productsLinksByCategory = async (categoryUrl) => {
 
     if (productLink) {
       dataInHighCategory.link = productLink.trim();
+      dataInHighCategory.id = productLink.trim().split("/")[3];
+
       products.push(dataInHighCategory);
     }
   });
@@ -275,7 +276,7 @@ export const singleProductScrapper = async (products) => {
 
   for (const product of products) {
     let data = {
-      id: product.link.split("/")[3],
+      id: product.id,
       fame: product.fame,
       link: `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
         process.env.AFF_TEG

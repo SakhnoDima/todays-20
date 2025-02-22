@@ -23,26 +23,27 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
     responseUrls = departments.data.data;
   }
 
-  console.log("Scrapping links:", requiredScrappingItems);
+  console.log("Total links:", requiredScrappingItems);
+  console.log("Department count:", responseUrls.length);
 
-  const totalElementFromLink = Math.floor(
-    requiredScrappingItems / responseUrls.length
-  );
-  console.log("totalElementFromLink:", totalElementFromLink);
-
+  let remainingItems = requiredScrappingItems;
   let productsLinks = [];
   const moversAndShakers = "movers-and-shakers/";
   const newest = "new-releases/";
 
-  for (const linkItem of responseUrls) {
-    let moversCounter = Math.max(Math.ceil(totalElementFromLink * 0.8), 1);
-    let newestCounter = Math.max(Math.ceil(totalElementFromLink * 0.2), 1);
-
+  for (let i = 0; i < responseUrls.length; i++) {
+    const count = Math.ceil(remainingItems / (responseUrls.length - i));
+    let moversCounter = Math.max(Math.floor(count * 0.8), 1);
+    let newestCounter = Math.max(Math.ceil(count * 0.2), 1);
+    console.log("moversCounter links:", moversCounter);
+    console.log("newestCounter links:", newestCounter);
     try {
       const moversLinks = await productsLinksByCategory(
-        moversAndShakers + linkItem
+        moversAndShakers + responseUrls[i]
       );
-      const newestLinks = await productsLinksByCategory(newest + linkItem);
+      const newestLinks = await productsLinksByCategory(
+        newest + responseUrls[i]
+      );
 
       if (moversLinks.length === 0) newestCounter += moversCounter;
 
@@ -51,7 +52,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
       for (const linkItem of moversLinks) {
         if (
           moversCounter !== 0 &&
-          !productsLinks.some((item) => item.link === linkItem.link)
+          !productsLinks.some((item) => item.id === linkItem.id)
         ) {
           productsLinks.push(linkItem);
           moversCounter--;
@@ -60,7 +61,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
       for (const linkItem of newestLinks) {
         if (
           newestCounter !== 0 &&
-          !productsLinks.some((item) => item.link === linkItem.link)
+          !productsLinks.some((item) => item.id === linkItem.id)
         ) {
           productsLinks.push(linkItem);
           newestCounter--;
@@ -69,34 +70,48 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
     } catch (error) {
       console.error("amazon scrapping", error);
     }
+    remainingItems -= count;
   }
 
   productsLinks = productsLinks.slice(0, requiredScrappingItems); // should have specified quantity
+  console.log("Total scrapping links:", productsLinks.length);
 
   const productsData = await singleProductScrapper(productsLinks);
 
   for (const product of productsData) {
-    try {
-      const content = await createContent(product);
-      product.content = {
-        title: content.title,
-        content: content.content,
-      };
-      delete product.title;
-      delete product.description;
-      product.category = content.category;
+    createContent(product)
+      .then((content) => {
+        product.content = {
+          title: content.title,
+          content: content.content,
+        };
+        delete product.title;
+        delete product.description;
+        product.category = content.category;
 
-      //TODO отправить данные на WP
-    } catch (error) {
-      console.log("Error processing product content", product.title, error);
-    }
+        fs.writeFileSync(
+          `amazon_product_${product.content.title}.json`,
+          JSON.stringify(productsData, null, 2),
+          "utf-8"
+        );
+        return axios.post(
+          "https://todays20.com/wp-json/amazon/v1/posts/",
+          product,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            maxBodyLength: Infinity,
+          }
+        );
+      })
+      .then((response) => {
+        console.log(JSON.stringify(response.data));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   }
-  //TODO удалить
-  fs.writeFileSync(
-    "amazon_products_data_23.json",
-    JSON.stringify([...productsData], null, 2),
-    "utf-8"
-  );
 };
 
 amazonDataFetcher();

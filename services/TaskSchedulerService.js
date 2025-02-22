@@ -39,13 +39,19 @@ class TaskSchedulerService {
   }
 
   async #runTasksSequentially() {
-    const requiredScrappingItems = PRODUCTS_PER_DAY / this.#tasks.length;
-    for (const task of this.#tasks) {
+    let remainingItems = PRODUCTS_PER_DAY;
+    const taskCount = this.#tasks.length;
+
+    for (let i = 0; i < taskCount; i++) {
+      const count = Math.ceil(remainingItems / (taskCount - i));
+
       try {
-        await task(requiredScrappingItems);
+        await this.#tasks[i](count);
       } catch (error) {
         console.error("CRAWLER ERROR! Check logs", error);
       }
+
+      remainingItems -= count;
     }
   }
 
