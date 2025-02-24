@@ -44,7 +44,7 @@ const extractTableData = async (
   }
 };
 
-const getDetailsFromBrowser = async (singleLink) => {
+const getDetailsFromBrowser = async (product) => {
   puppeteer.use(StealthPlugin());
 
   const browser = await puppeteer.launch({
@@ -69,7 +69,7 @@ const getDetailsFromBrowser = async (singleLink) => {
   let attempt = 0;
   while (attempt < maxRetries) {
     try {
-      await page.goto(`${baseUrl}/${singleLink}`, {
+      await page.goto(product.link, {
         waitUntil: "networkidle2",
         timeout: 500000,
       });
@@ -133,7 +133,7 @@ const getDetailsFromBrowser = async (singleLink) => {
           }
         );
         return res.text();
-      }, singleLink.split("/")[3]);
+      }, product.id);
 
       if (response) {
         const arrReviews = response.replace("\n", "").split("&&&").splice(3);
@@ -189,6 +189,7 @@ const getDetailsFromBrowser = async (singleLink) => {
 
       await extractTableData(
         page,
+
         "#tech > div:nth-child(4) > div > div:nth-child(1) > div > table > tbody > tr",
         "td:nth-child(1) p strong",
         "td:nth-child(2) p",
@@ -275,7 +276,7 @@ export const singleProductScrapper = async (products) => {
       const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
       const $ = cheerio.load(responseData);
 
-      //product link
+      1; //product link
       product.link = `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
         process.env.AFF_TEG
       }`;
@@ -323,7 +324,7 @@ export const singleProductScrapper = async (products) => {
       }
 
       //product reviews
-      const browserData = await getDetailsFromBrowser(product.link);
+      const browserData = await getDetailsFromBrowser(product);
 
       //update fame
       product.fame += browserData.fame;
