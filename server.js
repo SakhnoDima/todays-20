@@ -19,6 +19,6 @@ app.use(express.json());
 
 app.use("/scrapping", tasksRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server http://localhost:${PORT} started`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
