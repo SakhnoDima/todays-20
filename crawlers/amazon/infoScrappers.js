@@ -163,6 +163,8 @@ const getDetailsFromBrowser = async (product) => {
               for (const match of matchesImgs) {
                 const urlMatch = match.match(/"hiRes":"(https:\/\/[^"]+)"/);
                 if (urlMatch) {
+                  console.log(uniqueLinks.size);
+
                   uniqueLinks.add(urlMatch[1]);
                   if (uniqueLinks.size >= 4) break;
                 }
