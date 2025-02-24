@@ -69,8 +69,9 @@ const getDetailsFromBrowser = async (product) => {
   let attempt = 0;
   while (attempt < maxRetries) {
     try {
+      console.log("Im trying to go to page...");
       await page.goto(product.link, {
-        waitUntil: "networkidle2",
+        waitUntil: "domcontentloaded",
         timeout: 50000,
       });
       await delayer(1000);
