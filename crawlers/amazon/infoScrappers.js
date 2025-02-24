@@ -85,46 +85,6 @@ const getDetailsFromBrowser = async (product) => {
       };
       console.log(1);
 
-      //images
-      try {
-        const allScripts = await page.evaluate(() => {
-          const scripts = [...document.scripts].map((s) => s.textContent);
-          return scripts.find((text) => text.includes("jQuery.parseJSON"));
-        });
-        console.log(2);
-        if (allScripts) {
-          console.log(1);
-          const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
-          if (match && match[1]) {
-            try {
-              const jsonString = match[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\n/g, "")
-                .replace(/\\r/g, "")
-                .replace(/\\t/g, "")
-                .replace(/\\\\/g, "\\");
-
-              const matchesImgs =
-                jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
-              const uniqueLinks = [
-                ...new Set(
-                  matchesImgs.map(
-                    (m) => m.match(/"hiRes":"(https:\/\/[^"]+)"/)[1]
-                  )
-                ),
-              ];
-              responseData.images = [...uniqueLinks.slice(0, 4)];
-            } catch (error) {
-              console.error("JSON Parsing Error:", error);
-            }
-          } else {
-            console.log("No JSON data found in script.");
-          }
-        }
-      } catch (error) {
-        console.log("Getting images error");
-      }
-
       // reviews
       try {
         const response = await page.evaluate(async (asin) => {
@@ -175,6 +135,49 @@ const getDetailsFromBrowser = async (product) => {
         }
       } catch (error) {
         console.log("Getting reviews error");
+      }
+      //images
+      try {
+        const allScripts = await page.evaluate(() => {
+          const scripts = [...document.scripts].map((s) => s.textContent);
+          return scripts.find((text) => text.includes("jQuery.parseJSON"));
+        });
+        console.log(2);
+        if (allScripts) {
+          console.log(3);
+          const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
+          if (match && match[1]) {
+            try {
+              console.log(4);
+              const jsonString = match[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, "")
+                .replace(/\\r/g, "")
+                .replace(/\\t/g, "")
+                .replace(/\\\\/g, "\\");
+
+              const matchesImgs =
+                jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
+              const uniqueLinks = new Set();
+
+              for (const match of matchesImgs) {
+                const urlMatch = match.match(/"hiRes":"(https:\/\/[^"]+)"/);
+                if (urlMatch) {
+                  uniqueLinks.add(urlMatch[1]);
+                  if (uniqueLinks.size >= 4) break;
+                }
+              }
+
+              responseData.images = [...uniqueLinks];
+            } catch (error) {
+              console.error("JSON Parsing Error:", error);
+            }
+          } else {
+            console.log("No JSON data found in script.");
+          }
+        }
+      } catch (error) {
+        console.log("Getting images error");
       }
 
       // productInfo
