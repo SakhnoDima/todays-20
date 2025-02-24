@@ -65,14 +65,14 @@ const getDetailsFromBrowser = async (product) => {
     deviceScaleFactor: 1,
   });
 
-  const maxRetries = 5;
+  const maxRetries = 2;
   let attempt = 0;
   while (attempt < maxRetries) {
     try {
       console.log("Im trying to go to page...");
       await page.goto(product.link, {
         waitUntil: "domcontentloaded",
-        timeout: 50000,
+        timeout: 5000,
       });
       await delayer(1000);
       console.log("Ok, Im on page!");
@@ -85,86 +85,94 @@ const getDetailsFromBrowser = async (product) => {
       };
 
       //images
-      const allScripts = await page.evaluate(() => {
-        const scripts = [...document.scripts].map((s) => s.textContent);
-        return scripts.find((text) => text.includes("jQuery.parseJSON"));
-      });
+      try {
+        const allScripts = await page.evaluate(() => {
+          const scripts = [...document.scripts].map((s) => s.textContent);
+          return scripts.find((text) => text.includes("jQuery.parseJSON"));
+        });
 
-      if (allScripts) {
-        const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
-        if (match && match[1]) {
-          try {
-            const jsonString = match[1]
-              .replace(/\\"/g, '"')
-              .replace(/\\n/g, "")
-              .replace(/\\r/g, "")
-              .replace(/\\t/g, "")
-              .replace(/\\\\/g, "\\");
+        if (allScripts) {
+          const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
+          if (match && match[1]) {
+            try {
+              const jsonString = match[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, "")
+                .replace(/\\r/g, "")
+                .replace(/\\t/g, "")
+                .replace(/\\\\/g, "\\");
 
-            const matchesImgs =
-              jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
-            const uniqueLinks = [
-              ...new Set(
-                matchesImgs.map(
-                  (m) => m.match(/"hiRes":"(https:\/\/[^"]+)"/)[1]
-                )
-              ),
-            ];
-            responseData.images = [...uniqueLinks.slice(0, 4)];
-          } catch (error) {
-            console.error("JSON Parsing Error:", error);
+              const matchesImgs =
+                jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
+              const uniqueLinks = [
+                ...new Set(
+                  matchesImgs.map(
+                    (m) => m.match(/"hiRes":"(https:\/\/[^"]+)"/)[1]
+                  )
+                ),
+              ];
+              responseData.images = [...uniqueLinks.slice(0, 4)];
+            } catch (error) {
+              console.error("JSON Parsing Error:", error);
+            }
+          } else {
+            console.log("No JSON data found in script.");
           }
-        } else {
-          console.log("No JSON data found in script.");
         }
+      } catch (error) {
+        console.log("Getting images error");
       }
 
       // reviews
-      const response = await page.evaluate(async (asin) => {
-        const res = await fetch(
-          "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-              asin: asin,
-              sortBy: "recent",
-              scope: "reviewsAjax2",
-            }),
-          }
-        );
-        return res.text();
-      }, product.id);
-
-      if (response) {
-        const arrReviews = response.replace("\n", "").split("&&&").splice(3);
-
-        arrReviews.forEach((el) => {
-          const newElem = el.replace(/\\/g, "");
-
-          const matchRating = newElem.match(
-            /<span class="a-icon-alt">(.*?)<\/span>/
-          );
-          const matchDay = newElem.match(
-            /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
-          );
-
-          if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
-            const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
-            if (ratingMatch) {
-              const rating = parseFloat(ratingMatch[0]);
-
-              const isLas10DaysReview = isRecentReview(matchDay[1]);
-
-              responseData.fame += isLas10DaysReview ? 2 : 1;
-
-              responseData.fame += rating;
+      try {
+        const response = await page.evaluate(async (asin) => {
+          const res = await fetch(
+            "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                asin: asin,
+                sortBy: "recent",
+                scope: "reviewsAjax2",
+              }),
             }
-          }
-        });
-        console.log("Review rating:", responseData.fame);
+          );
+          return res.text();
+        }, product.id);
+
+        if (response) {
+          const arrReviews = response.replace("\n", "").split("&&&").splice(3);
+
+          arrReviews.forEach((el) => {
+            const newElem = el.replace(/\\/g, "");
+
+            const matchRating = newElem.match(
+              /<span class="a-icon-alt">(.*?)<\/span>/
+            );
+            const matchDay = newElem.match(
+              /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
+            );
+
+            if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
+              const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
+              if (ratingMatch) {
+                const rating = parseFloat(ratingMatch[0]);
+
+                const isLas10DaysReview = isRecentReview(matchDay[1]);
+
+                responseData.fame += isLas10DaysReview ? 2 : 1;
+
+                responseData.fame += rating;
+              }
+            }
+          });
+          console.log("Review rating:", responseData.fame);
+        }
+      } catch (error) {
+        console.log("Getting reviews error");
       }
 
       // productInfo
@@ -192,7 +200,6 @@ const getDetailsFromBrowser = async (product) => {
 
       await extractTableData(
         page,
-
         "#tech > div:nth-child(4) > div > div:nth-child(1) > div > table > tbody > tr",
         "td:nth-child(1) p strong",
         "td:nth-child(2) p",
@@ -200,8 +207,8 @@ const getDetailsFromBrowser = async (product) => {
       );
 
       // descriptions
-      const descriptionElement = await page.$("#productDescription");
-      if (descriptionElement) {
+
+      if (await page.$("#productDescription")) {
         const description = await page.$eval("#productDescription", (el) =>
           el.innerText.trim().replace(/\n/g, " ")
         );
