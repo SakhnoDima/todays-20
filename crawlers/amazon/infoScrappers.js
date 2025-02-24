@@ -87,48 +87,55 @@ const getDetailsFromBrowser = async (product) => {
 
       // reviews
       try {
-        const response = await page.evaluate(async () => {
-          try {
-            const res = await fetch(window.location.href);
-            if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-            return await res.text();
-          } catch (error) {
-            console.error("Fetch error:", error.message);
-            return null;
-          }
-        });
-
-        if (!response) {
-          console.warn("No response received for reviews");
-          return null;
-        }
-
-        const arrReviews = response.replace("\n", "").split("&&&").splice(3);
-
-        arrReviews.forEach((el) => {
-          const newElem = el.replace(/\\/g, "");
-
-          const matchRating = newElem.match(
-            /<span class="a-icon-alt">(.*?)<\/span>/
-          );
-          const matchDay = newElem.match(
-            /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
-          );
-
-          if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
-            const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
-            if (ratingMatch) {
-              const rating = parseFloat(ratingMatch[0]);
-
-              const isLas10DaysReview = isRecentReview(matchDay[1]);
-
-              responseData.fame += isLas10DaysReview ? 2 : 1;
-
-              responseData.fame += rating;
+        const response = await page.evaluate(async (asin) => {
+          console.log(11);
+          const res = await fetch(
+            "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                asin: asin,
+                sortBy: "recent",
+                scope: "reviewsAjax2",
+              }),
             }
-          }
-        });
-        console.log("Review rating:", responseData.fame);
+          );
+          console.log(111);
+          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+          return await res.text();
+        }, product.id);
+        console.log(1111);
+        if (response) {
+          const arrReviews = response.replace("\n", "").split("&&&").splice(3);
+
+          arrReviews.forEach((el) => {
+            const newElem = el.replace(/\\/g, "");
+
+            const matchRating = newElem.match(
+              /<span class="a-icon-alt">(.*?)<\/span>/
+            );
+            const matchDay = newElem.match(
+              /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
+            );
+
+            if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
+              const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
+              if (ratingMatch) {
+                const rating = parseFloat(ratingMatch[0]);
+
+                const isLas10DaysReview = isRecentReview(matchDay[1]);
+
+                responseData.fame += isLas10DaysReview ? 2 : 1;
+
+                responseData.fame += rating;
+              }
+            }
+          });
+          console.log("Review rating:", responseData.fame);
+        }
       } catch (error) {
         console.log(error);
 
