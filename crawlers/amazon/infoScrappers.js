@@ -83,6 +83,7 @@ const getDetailsFromBrowser = async (product) => {
         info: {},
         amazonInfo: {},
       };
+      console.log(1);
 
       //images
       try {
@@ -90,8 +91,9 @@ const getDetailsFromBrowser = async (product) => {
           const scripts = [...document.scripts].map((s) => s.textContent);
           return scripts.find((text) => text.includes("jQuery.parseJSON"));
         });
-
+        console.log(2);
         if (allScripts) {
+          console.log(1);
           const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
           if (match && match[1]) {
             try {
