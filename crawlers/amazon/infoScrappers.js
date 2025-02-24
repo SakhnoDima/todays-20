@@ -224,10 +224,6 @@ const getDetailsFromBrowser = async (product) => {
         await delayer(1000);
         return { fame: 0, images: [], info: {}, amazonInfo: {} };
       }
-    } finally {
-      await browser.close();
-      console.log("Browser closed!");
-      await delayer(1000);
     }
   }
 };
