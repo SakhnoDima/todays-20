@@ -71,8 +71,8 @@ const getDetailsFromBrowser = async (product) => {
     try {
       console.log("Im trying to go to page...");
       await page.goto(product.link, {
-        waitUntil: "domcontentloaded",
-        timeout: 5000,
+        waitUntil: "networkidle2",
+        timeout: 15000,
       });
       await delayer(1000);
       console.log("Ok, Im on page!");
@@ -83,7 +83,15 @@ const getDetailsFromBrowser = async (product) => {
         info: {},
         amazonInfo: {},
       };
-      console.log(1);
+      await page.waitForFunction(() => document.readyState === "complete");
+      console.log("Сторінка повністю завантажена");
+
+      console.log("Перед викликом page.evaluate, product.id:", product.id);
+      const response = await page.evaluate(async (asin) => {
+        console.log("Виконання почалося всередині evaluate");
+        return "test"; // Простий рядок, щоб перевірити, чи викликається функція
+      }, product.id);
+      console.log("Отримано відповідь з evaluate:", response);
 
       // reviews
       try {
