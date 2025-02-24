@@ -65,196 +65,175 @@ const getDetailsFromBrowser = async (product) => {
     deviceScaleFactor: 1,
   });
 
-  const maxRetries = 2;
-  let attempt = 0;
-  while (attempt < maxRetries) {
+  let responseData = {
+    fame: 0,
+    images: [],
+    info: {},
+    amazonInfo: {},
+  };
+  try {
+    console.log("Im trying to go to page...");
+    await page.goto(product.link, {
+      waitUntil: "networkidle2",
+      timeout: 15000,
+    });
+    await delayer(1000);
+    console.log("Ok, Im on page!");
+
+    // reviews
     try {
-      console.log("Im trying to go to page...");
-      await page.goto(product.link, {
-        waitUntil: "networkidle2",
-        timeout: 15000,
-      });
-      await delayer(1000);
-      console.log("Ok, Im on page!");
-
-      let responseData = {
-        fame: 0,
-        images: [],
-        info: {},
-        amazonInfo: {},
-      };
-      await page.waitForFunction(() => document.readyState === "complete");
-      console.log("Сторінка повністю завантажена");
-
-      console.log("Перед викликом page.evaluate, product.id:", product.id);
       const response = await page.evaluate(async (asin) => {
-        console.log("Виконання почалося всередині evaluate");
-        return "test"; // Простий рядок, щоб перевірити, чи викликається функція
-      }, product.id);
-      console.log("Отримано відповідь з evaluate:", response);
-
-      // reviews
-      try {
-        const response = await page.evaluate(async (asin) => {
-          console.log(11);
-          const res = await fetch(
-            "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                asin: asin,
-                sortBy: "recent",
-                scope: "reviewsAjax2",
-              }),
-            }
-          );
-          console.log(111);
-          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-          return await res.text();
-        }, product.id);
-        console.log(1111);
-        if (response) {
-          const arrReviews = response.replace("\n", "").split("&&&").splice(3);
-
-          arrReviews.forEach((el) => {
-            const newElem = el.replace(/\\/g, "");
-
-            const matchRating = newElem.match(
-              /<span class="a-icon-alt">(.*?)<\/span>/
-            );
-            const matchDay = newElem.match(
-              /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
-            );
-
-            if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
-              const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
-              if (ratingMatch) {
-                const rating = parseFloat(ratingMatch[0]);
-
-                const isLas10DaysReview = isRecentReview(matchDay[1]);
-
-                responseData.fame += isLas10DaysReview ? 2 : 1;
-
-                responseData.fame += rating;
-              }
-            }
-          });
-          console.log("Review rating:", responseData.fame);
-        }
-      } catch (error) {
-        console.log(error);
-
-        console.log("Getting reviews error");
-      }
-      //images
-      try {
-        const allScripts = await page.evaluate(() => {
-          const scripts = [...document.scripts].map((s) => s.textContent);
-          return scripts.find((text) => text.includes("jQuery.parseJSON"));
-        });
-        console.log(2);
-        if (allScripts) {
-          console.log(3);
-          const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
-          if (match && match[1]) {
-            try {
-              console.log(4);
-              const jsonString = match[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\n/g, "")
-                .replace(/\\r/g, "")
-                .replace(/\\t/g, "")
-                .replace(/\\\\/g, "\\");
-
-              const matchesImgs =
-                jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
-              const uniqueLinks = new Set();
-
-              for (const match of matchesImgs) {
-                const urlMatch = match.match(/"hiRes":"(https:\/\/[^"]+)"/);
-                if (urlMatch) {
-                  console.log(uniqueLinks.size);
-
-                  uniqueLinks.add(urlMatch[1]);
-                  if (uniqueLinks.size >= 4) break;
-                }
-              }
-
-              responseData.images = [...uniqueLinks];
-            } catch (error) {
-              console.error("JSON Parsing Error:", error);
-            }
-          } else {
-            console.log("No JSON data found in script.");
+        console.log(11);
+        const res = await fetch(
+          "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              asin: asin,
+              sortBy: "recent",
+              scope: "reviewsAjax2",
+            }),
           }
+        );
+        console.log(111);
+        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+        return await res.text();
+      }, product.id);
+      console.log(1111);
+      if (response) {
+        const arrReviews = response.replace("\n", "").split("&&&").splice(3);
+
+        arrReviews.forEach((el) => {
+          const newElem = el.replace(/\\/g, "");
+
+          const matchRating = newElem.match(
+            /<span class="a-icon-alt">(.*?)<\/span>/
+          );
+          const matchDay = newElem.match(
+            /<span data-hook="review-date" aria-level="6" class="a-size-base a-color-secondary review-date" role="heading">(.*?)<\/span>/
+          );
+
+          if (matchRating && matchRating[1] && matchDay && matchDay[1]) {
+            const ratingMatch = matchRating[1].match(/^\d+(\.\d+)?/);
+            if (ratingMatch) {
+              const rating = parseFloat(ratingMatch[0]);
+
+              const isLas10DaysReview = isRecentReview(matchDay[1]);
+
+              responseData.fame += isLas10DaysReview ? 2 : 1;
+
+              responseData.fame += rating;
+            }
+          }
+        });
+        console.log("Review rating:", responseData.fame);
+      }
+    } catch (error) {
+      console.log(error);
+
+      console.log("Getting reviews error");
+    }
+    //images
+    try {
+      const allScripts = await page.evaluate(() => {
+        const scripts = [...document.scripts].map((s) => s.textContent);
+        return scripts.find((text) => text.includes("jQuery.parseJSON"));
+      });
+      console.log(2);
+      if (allScripts) {
+        console.log(3);
+        const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
+        if (match && match[1]) {
+          try {
+            console.log(4);
+            const jsonString = match[1]
+              .replace(/\\"/g, '"')
+              .replace(/\\n/g, "")
+              .replace(/\\r/g, "")
+              .replace(/\\t/g, "")
+              .replace(/\\\\/g, "\\");
+
+            const matchesImgs =
+              jsonString.match(/"hiRes":"(https:\/\/[^"]+)"/g) || [];
+            const uniqueLinks = new Set();
+
+            for (const match of matchesImgs) {
+              const urlMatch = match.match(/"hiRes":"(https:\/\/[^"]+)"/);
+              if (urlMatch) {
+                console.log(uniqueLinks.size);
+
+                uniqueLinks.add(urlMatch[1]);
+                if (uniqueLinks.size >= 4) break;
+              }
+            }
+
+            responseData.images = [...uniqueLinks];
+          } catch (error) {
+            console.error("JSON Parsing Error:", error);
+          }
+        } else {
+          console.log("No JSON data found in script.");
         }
-      } catch (error) {
-        console.log("Getting images error");
       }
+    } catch (error) {
+      console.log("Getting images error");
+    }
 
-      // productInfo
-      if (
-        await page.$("#productOverview_feature_div > div > table > tbody > tr")
-      ) {
-        await extractTableData(
-          page,
-          "#productOverview_feature_div > div > table > tbody > tr",
-          "td.a-span3 span.a-size-base.a-text-bold",
-          "td.a-span9 span.a-size-base.po-break-word",
-          responseData.info
-        );
-      } else if (
-        await page.$("#productDetails_techSpec_section_1 > tbody > tr")
-      ) {
-        await extractTableData(
-          page,
-          "#productDetails_techSpec_section_1 > tbody > tr",
-          "th",
-          "td",
-          responseData.info
-        );
-      }
-
+    // productInfo
+    if (
+      await page.$("#productOverview_feature_div > div > table > tbody > tr")
+    ) {
       await extractTableData(
         page,
-        "#tech > div:nth-child(4) > div > div:nth-child(1) > div > table > tbody > tr",
-        "td:nth-child(1) p strong",
-        "td:nth-child(2) p",
-        responseData.amazonInfo
+        "#productOverview_feature_div > div > table > tbody > tr",
+        "td.a-span3 span.a-size-base.a-text-bold",
+        "td.a-span9 span.a-size-base.po-break-word",
+        responseData.info
       );
+    } else if (
+      await page.$("#productDetails_techSpec_section_1 > tbody > tr")
+    ) {
+      await extractTableData(
+        page,
+        "#productDetails_techSpec_section_1 > tbody > tr",
+        "th",
+        "td",
+        responseData.info
+      );
+    }
 
-      // descriptions
+    await extractTableData(
+      page,
+      "#tech > div:nth-child(4) > div > div:nth-child(1) > div > table > tbody > tr",
+      "td:nth-child(1) p strong",
+      "td:nth-child(2) p",
+      responseData.amazonInfo
+    );
 
-      if (await page.$("#productDescription")) {
-        const description = await page.$eval("#productDescription", (el) =>
-          el.innerText.trim().replace(/\n/g, " ")
-        );
-        if (description.length > 0) {
-          responseData.description = description;
-        }
-      }
+    // descriptions
 
-      await browser.close();
-      await delayer(1000);
-      console.log("Browser closed!");
-      return responseData;
-    } catch (error) {
-      console.error(`Error during transition (attempt ${attempt + 1}):`, error);
-      attempt++;
-      if (attempt < maxRetries) {
-        console.log(`Re-passing through 1000 sec...`);
-        await delayer(1000);
-      } else {
-        console.error(`The page failed to load after ${maxRetries} attempts.`);
-        await browser.close();
-        console.log("Browser closed!");
-        await delayer(1000);
-        return { fame: 0, images: [], info: {}, amazonInfo: {} };
+    if (await page.$("#productDescription")) {
+      const description = await page.$eval("#productDescription", (el) =>
+        el.innerText.trim().replace(/\n/g, " ")
+      );
+      if (description.length > 0) {
+        responseData.description = description;
       }
     }
+
+    await browser.close();
+    await delayer(1000);
+    console.log("Browser closed!");
+    return responseData;
+  } catch (error) {
+    console.error(`The page failed to load after !`);
+    await browser.close();
+    console.log("Browser closed!");
+    await delayer(1000);
+    return responseData;
   }
 };
 
