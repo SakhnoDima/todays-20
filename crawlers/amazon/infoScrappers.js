@@ -48,7 +48,7 @@ const getDetailsFromBrowser = async (product) => {
   puppeteer.use(StealthPlugin());
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -71,8 +71,10 @@ const getDetailsFromBrowser = async (product) => {
     try {
       await page.goto(product.link, {
         waitUntil: "networkidle2",
-        timeout: 500000,
+        timeout: 50000,
       });
+      await delayer(1000);
+      console.log("Ok, Im on page!");
 
       let responseData = {
         fame: 0,
