@@ -211,15 +211,13 @@ const getDetailsFromBrowser = async (singleLink) => {
       await browser.close();
       return responseData;
     } catch (error) {
-      console.error(`Помилка під час переходу (спроба ${attempt + 1}):`, error);
+      console.error(`Error during transition (attempt ${attempt + 1}):`, error);
       attempt++;
       if (attempt < maxRetries) {
-        console.log(`Повторний перехід через ${delay / 1000} сек...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        console.log(`Re-passing through 1000 sec...`);
+        await delayer(1000);
       } else {
-        console.error(
-          `Не вдалося завантажити сторінку після ${maxRetries} спроб.`
-        );
+        console.error(`The page failed to load after ${maxRetries} attempts.`);
         await browser.close();
         return { fame: 0, images: [], info: {}, amazonInfo: {} };
       }
@@ -272,25 +270,21 @@ export const productsLinksByCategory = async (categoryUrl) => {
 };
 
 export const singleProductScrapper = async (products) => {
-  const scrappedData = [];
-
   for (const product of products) {
-    let data = {
-      id: product.id,
-      fame: product.fame,
-      link: `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
-        process.env.AFF_TEG
-      }`,
-    };
-
-    const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
-    const $ = cheerio.load(responseData);
     try {
+      const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
+      const $ = cheerio.load(responseData);
+
+      //product link
+      product.link = `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
+        process.env.AFF_TEG
+      }`;
+
       //product title
-      data.title = $("#productTitle").text().trim();
+      product.title = $("#productTitle").text().trim();
 
       //product img
-      data.images = [$("#landingImage").attr("src")];
+      product.images = [$("#landingImage").attr("src")];
 
       //product description
       const description = [];
@@ -300,14 +294,14 @@ export const singleProductScrapper = async (products) => {
         description.push($(element).text().trim());
       });
 
-      data.description = description.join(" ");
+      product.description = description.join(" ");
 
       //product topBrand
       const topBrandFame = $(
         "#brandInsights_feature_div_3 > div > div > h2"
       ).text();
       if (topBrandFame) {
-        data.fame += 10;
+        product.fame += 10;
       }
 
       //product totalRating
@@ -321,9 +315,9 @@ export const singleProductScrapper = async (products) => {
           console.log("Product rating:", ratingNumber);
 
           if (ratingNumber < 1000) {
-            data.fame += 1;
+            product.fame += 1;
           } else {
-            data.fame += Math.min(11, Math.floor(ratingNumber / 1000));
+            product.fame += Math.min(11, Math.floor(ratingNumber / 1000));
           }
         }
       }
@@ -332,14 +326,14 @@ export const singleProductScrapper = async (products) => {
       const browserData = await getDetailsFromBrowser(product.link);
 
       //update fame
-      data.fame += browserData.fame;
+      product.fame += browserData.fame;
 
       //update description
-      data.description += " " + browserData.description;
+      product.description += " " + browserData.description;
 
       //update images
       if (browserData.images.length > 0) {
-        data.images = browserData.images;
+        product.images = browserData.images;
       }
 
       //product info
@@ -347,14 +341,14 @@ export const singleProductScrapper = async (products) => {
       if (browserData.info && Object.keys(browserData.info).length > 0) {
         console.log("browserData.info", browserData.info);
 
-        data.info = browserData.info;
+        product.info = browserData.info;
       }
       if (
         browserData.amazonInfo &&
         Object.keys(browserData.amazonInfo).length > 0
       ) {
         console.log("browserData.amazonInfo", browserData.amazonInfo);
-        data.amazonInfo = browserData.amazonInfo;
+        product.amazonInfo = browserData.amazonInfo;
       }
 
       // amazonsChoice or newRelease or bestSeller
@@ -367,23 +361,22 @@ export const singleProductScrapper = async (products) => {
 
       if (amazonsChoice.length) {
         console.log("Amazon choice!");
-        data.fame += 4;
-        data.badge = "Amazon Choice";
+        product.fame += 4;
+        product.badge = "Amazon Choice";
       } else if (zeitgeistBadge.trim().includes("#1 Best Seller")) {
         console.log("Amazon best seller!");
-        data.fame += 6;
-        data.badge = "Best Seller";
+        product.fame += 6;
+        product.badge = "Best Seller";
       } else if (zeitgeistBadge.trim().includes("#1 New Release")) {
         console.log("New Release!");
-        data.fame += 4;
-        data.badge = "New Release";
+        product.fame += 4;
+        product.badge = "New Release";
       }
 
-      scrappedData.push(data);
       await delayer(1000);
+      console.log("Product link:", product.link);
     } catch (error) {
       console.error("Scrapping single Item data error", error.message);
     }
   }
-  return scrappedData;
 };

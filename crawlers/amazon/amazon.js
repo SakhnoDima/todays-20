@@ -9,7 +9,7 @@ import {
 
 import { createContent } from "./contentGeneration.js";
 
-export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
+export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
   let responseUrls = [];
 
   const currentDay = getCurrentDayOfWeek();
@@ -76,9 +76,9 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
   productsLinks = productsLinks.slice(0, requiredScrappingItems); // should have specified quantity
   console.log("Total scrapping links:", productsLinks.length);
 
-  const productsData = await singleProductScrapper(productsLinks);
+  await singleProductScrapper(productsLinks);
 
-  for (const product of productsData) {
+  for (const product of productsLinks) {
     createContent(product)
       .then((content) => {
         product.content = {
@@ -91,7 +91,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 10) => {
 
         fs.writeFileSync(
           `amazon_product_${product.content.title}.json`,
-          JSON.stringify(productsData, null, 2),
+          JSON.stringify(product, null, 2),
           "utf-8"
         );
         return axios.post(
