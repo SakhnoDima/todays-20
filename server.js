@@ -17,6 +17,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+app.use((req, res, next) => {
+  console.log(`Received ${req.method} request at ${req.url}`);
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+  next();
+});
+
 app.use("/scrapping", tasksRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
