@@ -71,7 +71,7 @@ const getDetailsFromBrowser = async (product) => {
     try {
       await page.goto(product.link, {
         waitUntil: "networkidle2",
-        timeout: 5000,
+        timeout: 500000,
       });
 
       let responseData = {
