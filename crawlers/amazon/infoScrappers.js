@@ -71,7 +71,7 @@ const getDetailsFromBrowser = async (product) => {
     try {
       await page.goto(product.link, {
         waitUntil: "networkidle2",
-        timeout: 500000,
+        timeout: 5000,
       });
 
       let responseData = {
@@ -207,9 +207,9 @@ const getDetailsFromBrowser = async (product) => {
         }
       }
 
-      console.log(responseData);
-
       await browser.close();
+      await delayer(1000);
+      console.log("Browser closed!");
       return responseData;
     } catch (error) {
       console.error(`Error during transition (attempt ${attempt + 1}):`, error);
@@ -220,8 +220,14 @@ const getDetailsFromBrowser = async (product) => {
       } else {
         console.error(`The page failed to load after ${maxRetries} attempts.`);
         await browser.close();
+        console.log("Browser closed!");
+        await delayer(1000);
         return { fame: 0, images: [], info: {}, amazonInfo: {} };
       }
+    } finally {
+      await browser.close();
+      console.log("Browser closed!");
+      await delayer(1000);
     }
   }
 };
