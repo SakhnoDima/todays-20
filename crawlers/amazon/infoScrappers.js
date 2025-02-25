@@ -83,7 +83,6 @@ const getDetailsFromBrowser = async (product) => {
     // reviews
     try {
       const response = await page.evaluate(async (asin) => {
-        console.log(11);
         const res = await fetch(
           "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
           {
@@ -98,11 +97,11 @@ const getDetailsFromBrowser = async (product) => {
             }),
           }
         );
-        console.log(111);
+
         if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
         return await res.text();
       }, product.id);
-      console.log(1111);
+
       if (response) {
         const arrReviews = response.replace("\n", "").split("&&&").splice(3);
 
@@ -142,13 +141,11 @@ const getDetailsFromBrowser = async (product) => {
         const scripts = [...document.scripts].map((s) => s.textContent);
         return scripts.find((text) => text.includes("jQuery.parseJSON"));
       });
-      console.log(2);
+
       if (allScripts) {
-        console.log(3);
         const match = allScripts.match(/jQuery\.parseJSON\('(.+?)'\)/);
         if (match && match[1]) {
           try {
-            console.log(4);
             const jsonString = match[1]
               .replace(/\\"/g, '"')
               .replace(/\\n/g, "")
@@ -191,7 +188,7 @@ const getDetailsFromBrowser = async (product) => {
         "#productOverview_feature_div > div > table > tbody > tr",
         "td.a-span3 span.a-size-base.a-text-bold",
         "td.a-span9 span.a-size-base.po-break-word",
-        responseData.info
+        responseData.amazonInfo
       );
     } else if (
       await page.$("#productDetails_techSpec_section_1 > tbody > tr")
@@ -201,7 +198,7 @@ const getDetailsFromBrowser = async (product) => {
         "#productDetails_techSpec_section_1 > tbody > tr",
         "th",
         "td",
-        responseData.info
+        responseData.amazonInfo
       );
     }
 
@@ -384,6 +381,8 @@ export const singleProductScrapper = async (products) => {
         product.fame += 4;
         product.badge = "New Release";
       }
+
+      console.log(product);
 
       await delayer(1000);
       console.log("Product link:", product.link);
