@@ -52,10 +52,14 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       for (const linkItem of moversLinks) {
         if (!productsLinks.some((item) => item.id === linkItem.id)) {
           const isDataScrapped = await singleProductScrapper(linkItem);
+          console.log(moversCounter);
+
           if (moversCounter !== 0 && isDataScrapped) {
+            console.log(11);
+
             productsLinks.push(linkItem);
             moversCounter--;
-          }
+          } else if (moversCounter === 0) break;
         }
       }
       for (const linkItem of newestLinks) {
@@ -64,7 +68,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
           if (newestCounter !== 0 && isDataScrapped) {
             productsLinks.push(linkItem);
             newestCounter--;
-          }
+          } else if (newestCounter === 0) break;
         }
       }
     } catch (error) {
