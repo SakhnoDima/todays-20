@@ -49,32 +49,27 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
 
       if (newestLinks.length === 0) moversCounter += newestCounter;
 
+      let stillNeed = remainingItems;
       for (const linkItem of moversLinks) {
         if (!productsLinks.some((item) => item.id === linkItem.id)) {
-          console.log(
-            `Steel need ${
-              remainingItems - moversCounter - newestCounter
-            } links!`
-          );
+          console.log(`Steel need ${stillNeed} links!`);
 
           const isDataScrapped = await singleProductScrapper(linkItem);
           if (moversCounter !== 0 && isDataScrapped) {
             productsLinks.push(linkItem);
             moversCounter--;
+            stillNeed--;
           } else if (moversCounter === 0) break;
         }
       }
       for (const linkItem of newestLinks) {
         if (!productsLinks.some((item) => item.id === linkItem.id)) {
-          console.log(
-            `Steel need ${
-              remainingItems - moversCounter - newestCounter
-            } links!`
-          );
+          console.log(`Steel need ${stillNeed} links!`);
           const isDataScrapped = await singleProductScrapper(linkItem);
           if (newestCounter !== 0 && isDataScrapped) {
             productsLinks.push(linkItem);
             newestCounter--;
+            stillNeed--;
           } else if (newestCounter === 0) break;
         }
       }

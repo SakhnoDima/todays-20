@@ -75,7 +75,7 @@ const getDetailsFromBrowser = async (product) => {
     console.log("Im trying to go to page...");
     await page.goto(product.link, {
       waitUntil: "networkidle2",
-      timeout: 50000,
+      timeout: 20000,
     });
     await delayer(1000);
     console.log("Ok, Im on page!");
