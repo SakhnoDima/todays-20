@@ -88,40 +88,40 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
     }
   }
 
-  console.log("All Data", productsLinks);
+  console.log("All Data length", productsLinks.length);
 
-  // for (const product of productsLinks) {
-  //   createContent(product)
-  //     .then((content) => {
-  //       product.content = {
-  //         title: content.title,
-  //         content: content.content,
-  //       };
-  //       delete product.title;
-  //       delete product.description;
-  //       product.category = content.category;
+  for (const product of productsLinks) {
+    createContent(product)
+      .then((content) => {
+        product.content = {
+          title: content.title,
+          content: content.content,
+        };
+        delete product.title;
+        delete product.description;
+        product.category = content.category;
 
-  //       fs.writeFileSync(
-  //         `amazon_product_${product.content.title}.json`,
-  //         JSON.stringify(product, null, 2),
-  //         "utf-8"
-  //       );
-  //       return axios.post(
-  //         "https://todays20.com/wp-json/amazon/v1/posts/",
-  //         product,
-  //         {
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //           },
-  //           maxBodyLength: Infinity,
-  //         }
-  //       );
-  //     })
-  //     .then((response) => {
-  //       console.log(JSON.stringify(response.data));
-  //     })
-  //     .catch((error) => {
-  //       console.log(error);
-  //     });
-  // }
+        fs.writeFileSync(
+          `amazon_product_${product.content.title}.json`,
+          JSON.stringify(product, null, 2),
+          "utf-8"
+        );
+        return axios.post(
+          "https://todays20.com/wp-json/amazon/v1/posts/",
+          product,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            maxBodyLength: Infinity,
+          }
+        );
+      })
+      .then((response) => {
+        console.log(JSON.stringify(response.data));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  }
 };
