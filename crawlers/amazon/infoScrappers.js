@@ -83,6 +83,9 @@ const getDetailsFromBrowser = async (product) => {
     // reviews
     try {
       const response = await page.evaluate(async (asin) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
         const res = await fetch(
           "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
           {
@@ -97,7 +100,7 @@ const getDetailsFromBrowser = async (product) => {
             }),
           }
         );
-
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
         return await res.text();
       }, product.id);
@@ -222,7 +225,7 @@ const getDetailsFromBrowser = async (product) => {
     console.log("Browser closed!");
     return responseData;
   } catch (error) {
-    console.error(`The page failed to load after !`);
+    console.error(`The page failed to load!`);
     await browser.close();
     console.log("Browser closed!");
     await delayer(1000);
