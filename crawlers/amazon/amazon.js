@@ -51,12 +51,14 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
 
       for (const linkItem of moversLinks) {
         if (!productsLinks.some((item) => item.id === linkItem.id)) {
+          console.log(
+            `Steel need ${
+              remainingItems - moversCounter - newestCounter
+            } links!`
+          );
+
           const isDataScrapped = await singleProductScrapper(linkItem);
-          console.log(moversCounter);
-
           if (moversCounter !== 0 && isDataScrapped) {
-            console.log(11);
-
             productsLinks.push(linkItem);
             moversCounter--;
           } else if (moversCounter === 0) break;
@@ -64,6 +66,11 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       }
       for (const linkItem of newestLinks) {
         if (!productsLinks.some((item) => item.id === linkItem.id)) {
+          console.log(
+            `Steel need ${
+              remainingItems - moversCounter - newestCounter
+            } links!`
+          );
           const isDataScrapped = await singleProductScrapper(linkItem);
           if (newestCounter !== 0 && isDataScrapped) {
             productsLinks.push(linkItem);
@@ -118,5 +125,3 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
   //     });
   // }
 };
-
-amazonDataFetcher();
