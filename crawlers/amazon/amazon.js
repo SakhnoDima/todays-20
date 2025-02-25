@@ -50,66 +50,69 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       if (newestLinks.length === 0) moversCounter += newestCounter;
 
       for (const linkItem of moversLinks) {
-        if (
-          moversCounter !== 0 &&
-          !productsLinks.some((item) => item.id === linkItem.id)
-        ) {
-          productsLinks.push(linkItem);
-          moversCounter--;
+        if (!productsLinks.some((item) => item.id === linkItem.id)) {
+          const isDataScrapped = await singleProductScrapper(linkItem);
+          if (moversCounter !== 0 && isDataScrapped) {
+            productsLinks.push(linkItem);
+            moversCounter--;
+          }
         }
       }
       for (const linkItem of newestLinks) {
-        if (
-          newestCounter !== 0 &&
-          !productsLinks.some((item) => item.id === linkItem.id)
-        ) {
-          productsLinks.push(linkItem);
-          newestCounter--;
+        if (!productsLinks.some((item) => item.id === linkItem.id)) {
+          const isDataScrapped = await singleProductScrapper(linkItem);
+          if (newestCounter !== 0 && isDataScrapped) {
+            productsLinks.push(linkItem);
+            newestCounter--;
+          }
         }
       }
     } catch (error) {
       console.error("amazon scrapping", error);
     }
-    remainingItems -= count;
+    if (moversCounter || newestCounter) {
+      remainingItems += moversCounter + newestCounter;
+    } else {
+      remainingItems -= count;
+    }
   }
 
-  productsLinks = productsLinks.slice(0, requiredScrappingItems); // should have specified quantity
-  console.log("Total scrapping links:", productsLinks.length);
+  console.log("All Data", productsLinks);
 
-  await singleProductScrapper(productsLinks);
+  // for (const product of productsLinks) {
+  //   createContent(product)
+  //     .then((content) => {
+  //       product.content = {
+  //         title: content.title,
+  //         content: content.content,
+  //       };
+  //       delete product.title;
+  //       delete product.description;
+  //       product.category = content.category;
 
-  for (const product of productsLinks) {
-    createContent(product)
-      .then((content) => {
-        product.content = {
-          title: content.title,
-          content: content.content,
-        };
-        delete product.title;
-        delete product.description;
-        product.category = content.category;
-
-        fs.writeFileSync(
-          `amazon_product_${product.content.title}.json`,
-          JSON.stringify(product, null, 2),
-          "utf-8"
-        );
-        return axios.post(
-          "https://todays20.com/wp-json/amazon/v1/posts/",
-          product,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            maxBodyLength: Infinity,
-          }
-        );
-      })
-      .then((response) => {
-        console.log(JSON.stringify(response.data));
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  }
+  //       fs.writeFileSync(
+  //         `amazon_product_${product.content.title}.json`,
+  //         JSON.stringify(product, null, 2),
+  //         "utf-8"
+  //       );
+  //       return axios.post(
+  //         "https://todays20.com/wp-json/amazon/v1/posts/",
+  //         product,
+  //         {
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //           },
+  //           maxBodyLength: Infinity,
+  //         }
+  //       );
+  //     })
+  //     .then((response) => {
+  //       console.log(JSON.stringify(response.data));
+  //     })
+  //     .catch((error) => {
+  //       console.log(error);
+  //     });
+  // }
 };
+
+amazonDataFetcher();

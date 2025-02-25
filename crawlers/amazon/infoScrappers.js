@@ -131,9 +131,7 @@ const getDetailsFromBrowser = async (product) => {
         console.log("Review rating:", responseData.fame);
       }
     } catch (error) {
-      console.log(error);
-
-      console.log("Getting reviews error");
+      console.log("Getting reviews error:", error);
     }
     //images
     try {
@@ -160,8 +158,6 @@ const getDetailsFromBrowser = async (product) => {
             for (const match of matchesImgs) {
               const urlMatch = match.match(/"hiRes":"(https:\/\/[^"]+)"/);
               if (urlMatch) {
-                console.log(uniqueLinks.size);
-
                 uniqueLinks.add(urlMatch[1]);
                 if (uniqueLinks.size >= 4) break;
               }
@@ -176,7 +172,7 @@ const getDetailsFromBrowser = async (product) => {
         }
       }
     } catch (error) {
-      console.log("Getting images error");
+      console.log("Getting images error:", error);
     }
 
     // productInfo
@@ -230,7 +226,7 @@ const getDetailsFromBrowser = async (product) => {
     await browser.close();
     console.log("Browser closed!");
     await delayer(1000);
-    return responseData;
+    return null;
   }
 };
 
@@ -278,116 +274,117 @@ export const productsLinksByCategory = async (categoryUrl) => {
   return products;
 };
 
-export const singleProductScrapper = async (products) => {
-  for (const product of products) {
-    try {
-      const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
-      const $ = cheerio.load(responseData);
+export const singleProductScrapper = async (product) => {
+  try {
+    const responseData = await fetchWithRetry(`${baseUrl}/${product.link}`);
+    const $ = cheerio.load(responseData);
 
-      1; //product link
-      product.link = `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
-        process.env.AFF_TEG
-      }`;
+    //product link
+    product.link = `${baseUrl}${product.link.split("/ref=")[0]}?tag=${
+      process.env.AFF_TEG
+    }`;
 
-      //product title
-      product.title = $("#productTitle").text().trim();
+    //product title
+    product.title = $("#productTitle").text().trim();
 
-      //product img
-      product.images = [$("#landingImage").attr("src")];
+    //product img
+    product.images = [$("#landingImage").attr("src")];
 
-      //product description
-      const description = [];
-      $(
-        "ul.a-unordered-list.a-vertical.a-spacing-mini li.a-spacing-mini span.a-list-item"
-      ).each((_, element) => {
-        description.push($(element).text().trim());
-      });
+    //product description
+    const description = [];
+    $(
+      "ul.a-unordered-list.a-vertical.a-spacing-mini li.a-spacing-mini span.a-list-item"
+    ).each((_, element) => {
+      description.push($(element).text().trim());
+    });
 
-      product.description = description.join(" ");
+    product.description = description.join(" ");
 
-      //product topBrand
-      const topBrandFame = $(
-        "#brandInsights_feature_div_3 > div > div > h2"
-      ).text();
-      if (topBrandFame) {
-        product.fame += 10;
-      }
+    //product topBrand
+    const topBrandFame = $(
+      "#brandInsights_feature_div_3 > div > div > h2"
+    ).text();
+    if (topBrandFame) {
+      product.fame += 10;
+    }
 
-      //product totalRating
-      const totalRating = $("#acrCustomerReviewText").text();
-      if (totalRating) {
-        const ratingNumber = Number(
-          totalRating.replace(/,/g, "").match(/\d+/)?.[0]
-        );
+    //product totalRating
+    const totalRating = $("#acrCustomerReviewText").text();
+    if (totalRating) {
+      const ratingNumber = Number(
+        totalRating.replace(/,/g, "").match(/\d+/)?.[0]
+      );
 
-        if (!isNaN(ratingNumber)) {
-          console.log("Product rating:", ratingNumber);
+      if (!isNaN(ratingNumber)) {
+        console.log("Product rating:", ratingNumber);
 
-          if (ratingNumber < 1000) {
-            product.fame += 1;
-          } else {
-            product.fame += Math.min(11, Math.floor(ratingNumber / 1000));
-          }
+        if (ratingNumber < 1000) {
+          product.fame += 1;
+        } else {
+          product.fame += Math.min(11, Math.floor(ratingNumber / 1000));
         }
       }
-
-      //product reviews
-      const browserData = await getDetailsFromBrowser(product);
-
-      //update fame
-      product.fame += browserData.fame;
-
-      //update description
-      product.description += " " + browserData.description;
-
-      //update images
-      if (browserData.images.length > 0) {
-        product.images = browserData.images;
-      }
-
-      //product info
-
-      if (browserData.info && Object.keys(browserData.info).length > 0) {
-        console.log("browserData.info", browserData.info);
-
-        product.info = browserData.info;
-      }
-      if (
-        browserData.amazonInfo &&
-        Object.keys(browserData.amazonInfo).length > 0
-      ) {
-        console.log("browserData.amazonInfo", browserData.amazonInfo);
-        product.amazonInfo = browserData.amazonInfo;
-      }
-
-      // amazonsChoice or newRelease or bestSeller
-      const amazonsChoice = $(
-        "#acBadge_feature_div > div > span.a-declarative > span.a-size-small.aok-float-left.ac-badge-rectangle"
-      );
-      const zeitgeistBadge = $(
-        "#zeitgeistBadge_feature_div > div > a > i"
-      ).text();
-
-      if (amazonsChoice.length) {
-        console.log("Amazon choice!");
-        product.fame += 4;
-        product.badge = "Amazon Choice";
-      } else if (zeitgeistBadge.trim().includes("#1 Best Seller")) {
-        console.log("Amazon best seller!");
-        product.fame += 6;
-        product.badge = "Best Seller";
-      } else if (zeitgeistBadge.trim().includes("#1 New Release")) {
-        console.log("New Release!");
-        product.fame += 4;
-        product.badge = "New Release";
-      }
-
-      console.log(product);
-
-      await delayer(1000);
-      console.log("Product link:", product.link);
-    } catch (error) {
-      console.error("Scrapping single Item data error", error.message);
     }
+
+    //product reviews
+    const browserData = await getDetailsFromBrowser(product);
+
+    if (!browserData) {
+      return null;
+    }
+    //update fame
+    product.fame += browserData.fame;
+
+    //update description
+    product.description += " " + browserData.description;
+
+    //update images
+    if (browserData.images.length > 0) {
+      product.images = browserData.images;
+    }
+
+    //product info
+
+    if (browserData.info && Object.keys(browserData.info).length > 0) {
+      console.log("browserData.info", browserData.info);
+
+      product.info = browserData.info;
+    }
+    if (
+      browserData.amazonInfo &&
+      Object.keys(browserData.amazonInfo).length > 0
+    ) {
+      console.log("browserData.amazonInfo", browserData.amazonInfo);
+      product.amazonInfo = browserData.amazonInfo;
+    }
+
+    // amazonsChoice or newRelease or bestSeller
+    const amazonsChoice = $(
+      "#acBadge_feature_div > div > span.a-declarative > span.a-size-small.aok-float-left.ac-badge-rectangle"
+    );
+    const zeitgeistBadge = $(
+      "#zeitgeistBadge_feature_div > div > a > i"
+    ).text();
+
+    if (amazonsChoice.length) {
+      console.log("Amazon choice!");
+      product.fame += 4;
+      product.badge = "Amazon Choice";
+    } else if (zeitgeistBadge.trim().includes("#1 Best Seller")) {
+      console.log("Amazon best seller!");
+      product.fame += 6;
+      product.badge = "Best Seller";
+    } else if (zeitgeistBadge.trim().includes("#1 New Release")) {
+      console.log("New Release!");
+      product.fame += 4;
+      product.badge = "New Release";
+    }
+
+    await delayer(2000);
+    console.log("Product:", product);
+    return true;
+  } catch (error) {
+    console.error("Scrapping single Item data error", error.message);
+    return null;
   }
 };
