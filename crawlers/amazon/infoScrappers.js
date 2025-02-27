@@ -64,7 +64,65 @@ const getDetailsFromBrowser = async (product) => {
     height: 760,
     deviceScaleFactor: 1,
   });
+  const cookies = [
+    {
+      name: "csm-hit",
+      value:
+        "adb:adblk_no&t:1740657283525&tb:s-PHZK2DM6ZA933TPVK127|1740657280947",
+      domain: "www.amazon.com",
+      path: "/",
+      expires: 1770897283,
+    },
+    {
+      name: "session-id",
+      value: "139-9580207-0072344",
+      domain: ".amazon.com",
+      path: "/",
+      expires: 1772193270.991621,
+      secure: true,
+    },
+    {
+      name: "csm-hit",
+      value:
+        "adb:adblk_yes&t:1740653049827&tb:6CQKP61G25YMEEMMNVQB+s-VH4MKXENTX2NSGNKZJ3N|1740653049827",
+      domain: ".amazon.com",
+      path: "/",
+      session: true,
+    },
+    {
+      name: "ubid-main",
+      value: "134-4240842-3401920",
+      domain: ".amazon.com",
+      path: "/",
+      expires: 1772193273.290907,
+      secure: true,
+    },
+    {
+      name: "session-token",
+      value:
+        "WbBx0CwFjZASlbsC+hnni4WctszrYlWOMEe6Ay+jotsRR+HpWW1Yq6fzRiU4wOt2gPFbD26Nkas4zQc7vHaU5Rav8+iLqpCcEMg68PmE9HGBWJQcHABXAWKWy+GPX3eY2cUaqrpDMoSOD30HjiN3pO/Vj9L/1h1LH5Jz+E7KKBpBx5PSNOalUcDn4k+fg+tVc90iHPEZePR34vRht0fXQNapIGDFTlAR9XZaXfihfm/v0qX1VgzyadUHdOk6GX9dh0LBE8g0d7Lj5f/rofYbkTxNFdkJU70TmRc75Tyj4IR4byEKps0l+wnb2xjZj2WwpaCb8LC7HmtXm/QARHXsmrOvFpkHviF7",
+      domain: ".amazon.com",
+      path: "/",
+      expires: 1772193273.884434,
+      secure: true,
+    },
+    {
+      name: "i18n-prefs",
+      value: "USD",
+      domain: ".amazon.com",
+      path: "/",
+      session: true,
+    },
+    {
+      name: "session-id-time",
+      value: "2082787201l",
+      domain: ".amazon.com",
+      path: "/",
+      session: true,
+    },
+  ];
 
+  await page.setCookie(...cookies);
   let responseData = {
     fame: 0,
     images: [],
@@ -73,12 +131,48 @@ const getDetailsFromBrowser = async (product) => {
   };
   try {
     console.log("Im trying to go to page...");
-    await page.goto(product.link, {
+    await page.goto(`${product.link}/139-9580207-0072344`, {
       waitUntil: "networkidle2",
       timeout: 20000,
     });
-    await delayer(1000);
+    await delayer(2000);
     console.log("Ok, Im on page!");
+
+    // availability
+    const isAvailability = await page.$("#availability > span");
+    if (isAvailability) {
+      const AvailabilityText = await page.evaluate(
+        (el) => el.textContent.trim(),
+        isAvailability
+      );
+      if (AvailabilityText.includes("left in stock - order soon.")) {
+        responseData.fame += 5;
+      }
+    }
+    //TODO time deal
+    // const isTimeDeal = await page.$("#dealBadge_feature_div > span");
+    // if (isTimeDeal) {
+    //   console.log("Good prise!!! Time deal!!!");
+    // }
+
+    // bought in past month
+    const isPastMonth = await page.$(
+      "#social-proofing-faceout-title-tk_bought > span.a-text-bold"
+    );
+    if (isPastMonth) {
+      const inPastMonthText = await page.evaluate(
+        (el) => el.textContent.trim(),
+        isPastMonth
+      );
+      if (inPastMonthText.includes("K")) {
+        const match = inPastMonthText.match(/\d+/);
+        responseData.fame += Number(match);
+        console.log(`We add ${match} because:`, inPastMonthText);
+      } else {
+        responseData.fame += 1;
+        console.log(`We add 1 because:`, inPastMonthText);
+      }
+    }
 
     // reviews
     try {
@@ -225,7 +319,7 @@ const getDetailsFromBrowser = async (product) => {
     console.log("Browser closed!");
     return responseData;
   } catch (error) {
-    console.error(`The page failed to load!`);
+    console.error(`The page failed to load!`, error);
     await browser.close();
     console.log("Browser closed!");
     await delayer(1000);
