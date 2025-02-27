@@ -95,7 +95,7 @@ const getDetailsFromBrowser = async (product) => {
             },
             body: new URLSearchParams({
               asin: asin,
-              sortBy: "recent",
+              //sortBy: "recent", Amazon remove sorting
               scope: "reviewsAjax2",
             }),
           }

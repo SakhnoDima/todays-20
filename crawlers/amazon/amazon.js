@@ -96,11 +96,11 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
         delete product.description;
         product.category = content.category;
 
-        fs.writeFileSync(
-          `amazon_product_${product.content.title}.json`,
-          JSON.stringify(product, null, 2),
-          "utf-8"
-        );
+        // fs.writeFileSync(
+        //   `amazon_product_${product.content.title}.json`,
+        //   JSON.stringify(product, null, 2),
+        //   "utf-8"
+        // );
         return axios.post(
           "https://todays20.com/wp-json/amazon/v1/posts/",
           product,
@@ -120,3 +120,5 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       });
   }
 };
+
+amazonDataFetcher();
