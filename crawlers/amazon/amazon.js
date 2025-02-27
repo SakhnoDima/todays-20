@@ -120,5 +120,3 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       });
   }
 };
-
-amazonDataFetcher();
