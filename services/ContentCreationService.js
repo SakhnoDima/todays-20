@@ -8,13 +8,19 @@ class OpenAIService {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async generateContent(productTitle, productDescription, productMarketplace) {
+  async generateContent(
+    productTitle,
+    productDescription,
+    productCustomerSay,
+    productMarketplace
+  ) {
     try {
       const assistantId = "asst_niVbVVVkvnt6wpWm9cPCsZcI";
       const message = `
         title: ${productTitle};
         description: ${productDescription};
         marketplace: ${productMarketplace};
+        customerSay: ${productCustomerSay}
       `;
       return await this.#runSequence(assistantId, message);
     } catch (error) {

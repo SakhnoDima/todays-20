@@ -304,13 +304,23 @@ const getDetailsFromBrowser = async (product) => {
     );
 
     // descriptions
-
     if (await page.$("#productDescription")) {
       const description = await page.$eval("#productDescription", (el) =>
         el.innerText.trim().replace(/\n/g, " ")
       );
       if (description.length > 0) {
         responseData.description = description;
+      }
+    }
+
+    //customers say
+    const customersSaySelector = "#product-summary > p.a-spacing-small";
+    if (await page.$(customersSaySelector)) {
+      const customersSay = await page.$eval(customersSaySelector, (el) =>
+        el.innerText.trim().replace(/\n/g, " ")
+      );
+      if (customersSay.length > 0) {
+        responseData.customersSay = customersSay;
       }
     }
 
@@ -429,6 +439,11 @@ export const singleProductScrapper = async (product) => {
     if (!browserData) {
       return null;
     }
+    // customersSay
+    if (browserData.customersSay && browserData.customersSay.length > 0) {
+      product.customersSay = browserData.customersSay;
+    }
+
     //update fame
     product.fame += browserData.fame;
 
@@ -441,17 +456,13 @@ export const singleProductScrapper = async (product) => {
     }
 
     //product info
-
     if (browserData.info && Object.keys(browserData.info).length > 0) {
-      console.log("browserData.info", browserData.info);
-
       product.info = browserData.info;
     }
     if (
       browserData.amazonInfo &&
       Object.keys(browserData.amazonInfo).length > 0
     ) {
-      console.log("browserData.amazonInfo", browserData.amazonInfo);
       product.amazonInfo = browserData.amazonInfo;
     }
 

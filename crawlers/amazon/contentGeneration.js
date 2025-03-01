@@ -1,10 +1,11 @@
 import OpenAIService from "../../services/ContentCreationService.js";
 
 export const createContent = async (data) => {
-  console.log(data.title);
+  console.log(data.customersSay);
   const content = await OpenAIService.generateContent(
     data.title,
     data.description,
+    data.customersSay,
     "amazon"
   );
   const parseData = JSON.parse(content);

@@ -94,6 +94,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
         };
         delete product.title;
         delete product.description;
+        delete product.customersSay;
         product.category = content.category;
 
         // fs.writeFileSync(
@@ -120,3 +121,5 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       });
   }
 };
+
+//amazonDataFetcher();
