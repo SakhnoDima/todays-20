@@ -147,7 +147,10 @@ const getDetailsFromBrowser = async (product) => {
       );
       if (AvailabilityText.includes("left in stock - order soon.")) {
         responseData.fame += 5;
+        console.log("isAvailability OK");
       }
+    } else {
+      console.log("isAvailability not found");
     }
     //TODO time deal
     // const isTimeDeal = await page.$("#dealBadge_feature_div > span");
@@ -164,6 +167,7 @@ const getDetailsFromBrowser = async (product) => {
         (el) => el.textContent.trim(),
         isPastMonth
       );
+      console.log("isPastMonth OK");
       if (inPastMonthText.includes("K")) {
         const match = inPastMonthText.match(/\d+/);
         responseData.fame += Number(match);
@@ -172,6 +176,8 @@ const getDetailsFromBrowser = async (product) => {
         responseData.fame += 1;
         console.log(`We add 1 because:`, inPastMonthText);
       }
+    } else {
+      console.log("isPastMonth not found");
     }
 
     // reviews
@@ -179,6 +185,7 @@ const getDetailsFromBrowser = async (product) => {
       const response = await page.evaluate(async (asin) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
+        console.log("Start fetching data in evaluate reviews");
 
         const res = await fetch(
           "/hz/reviews-render/ajax/medley-filtered-reviews/get/ref=cm_cr_dp_d_fltrs_srt",
@@ -233,6 +240,7 @@ const getDetailsFromBrowser = async (product) => {
     //images
     try {
       const allScripts = await page.evaluate(() => {
+        console.log("Start getting img in evaluate");
         const scripts = [...document.scripts].map((s) => s.textContent);
         return scripts.find((text) => text.includes("jQuery.parseJSON"));
       });
