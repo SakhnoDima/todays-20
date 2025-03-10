@@ -77,7 +77,7 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
       console.error("amazon scrapping", error);
     }
     if (moversCounter || newestCounter) {
-      remainingItems += moversCounter + newestCounter;
+      remainingItems += moversCounter + newestCounter - count;
     } else {
       remainingItems -= count;
     }
