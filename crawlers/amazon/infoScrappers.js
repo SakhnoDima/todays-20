@@ -347,46 +347,50 @@ const getDetailsFromBrowser = async (product) => {
 
 export const productsLinksByCategory = async (categoryUrl) => {
   const fullUrl = `${baseUrl}/gp/` + categoryUrl;
+  try {
+    const responseData = await fetchWithRetry(fullUrl);
+    const $ = cheerio.load(responseData);
+    let products = [];
 
-  const responseData = await fetchWithRetry(fullUrl);
-  const $ = cheerio.load(responseData);
-  let products = [];
+    $("div[id='gridItemRoot']").each((_, element) => {
+      const dataInHighCategory = {
+        fame: 5,
+      };
 
-  $("div[id='gridItemRoot']").each((_, element) => {
-    const dataInHighCategory = {
-      fame: 5,
-    };
+      const productLink = $(element)
+        .find("div.p13n-sc-uncoverable-faceout > a")
+        .attr("href");
 
-    const productLink = $(element)
-      .find("div.p13n-sc-uncoverable-faceout > a")
-      .attr("href");
+      if (categoryUrl.includes("movers-and-shakers")) {
+        const rankPercent = $(element)
+          .find("div.a-row.a-spacing-none.aok-inline-block > span > span")
+          .text()
+          .replace(/[^0-9,]/g, "")
+          .replace(",", "")
+          .match(/\d+/)?.[0];
 
-    if (categoryUrl.includes("movers-and-shakers")) {
-      const rankPercent = $(element)
-        .find("div.a-row.a-spacing-none.aok-inline-block > span > span")
-        .text()
-        .replace(/[^0-9,]/g, "")
-        .replace(",", "")
-        .match(/\d+/)?.[0];
+        const rankValue = rankPercent ? parseInt(rankPercent, 10) : 0;
 
-      const rankValue = rankPercent ? parseInt(rankPercent, 10) : 0;
-
-      if (rankValue > 100 && rankValue < 200) {
-        dataInHighCategory.fame = 10;
-      } else if (rankValue > 200) {
-        dataInHighCategory.fame = 15;
+        if (rankValue > 100 && rankValue < 200) {
+          dataInHighCategory.fame = 10;
+        } else if (rankValue > 200) {
+          dataInHighCategory.fame = 15;
+        }
       }
-    }
 
-    if (productLink) {
-      dataInHighCategory.link = productLink.trim();
-      dataInHighCategory.id = productLink.trim().split("/")[3];
+      if (productLink) {
+        dataInHighCategory.link = productLink.trim();
+        dataInHighCategory.id = productLink.trim().split("/")[3];
 
-      products.push(dataInHighCategory);
-    }
-  });
+        products.push(dataInHighCategory);
+      }
+    });
 
-  return products;
+    return products;
+  } catch (error) {
+    console.log("Error in ProductsLinkScrapper", error.message);
+    return [];
+  }
 };
 
 export const singleProductScrapper = async (product) => {

@@ -1,7 +1,7 @@
 import axios from "axios";
 import { delayer } from "../../assistants/helpers.js";
 
-export const fetchWithRetry = async (url, retries = 10, delay = 5000) => {
+export const fetchWithRetry = async (url, retries = 10, delay = 10000) => {
   console.log("Scrapping url:", url);
 
   for (let i = 0; i < retries; i++) {

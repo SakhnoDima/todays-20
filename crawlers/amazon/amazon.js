@@ -1,5 +1,17 @@
 import axios from "axios";
+import axiosRetry from "axios-retry";
 import fs from "fs";
+
+axiosRetry(axios, {
+  retries: 3,
+  retryDelay: (retryCount) => {
+    console.log(`Retry attempt ${retryCount}`);
+    return retryCount * 2000;
+  },
+  retryCondition: (error) => {
+    return error.response?.status >= 500 || error.code === "ECONNABORTED";
+  },
+});
 
 import { getCurrentDayOfWeek } from "../../assistants/helpers.js";
 import {
@@ -114,10 +126,10 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
         );
       })
       .then((response) => {
-        console.log(JSON.stringify(response.data));
+        console.log("Success:", JSON.stringify(response.data));
       })
       .catch((error) => {
-        console.log(error);
+        console.log("Error while post saving:", error.message);
       });
   }
 };
