@@ -85,13 +85,14 @@ export const amazonDataFetcher = async (requiredScrappingItems = 20) => {
           } else if (newestCounter === 0) break;
         }
       }
+
+      if (moversCounter || newestCounter) {
+        remainingItems += moversCounter + newestCounter - count;
+      } else {
+        remainingItems -= count;
+      }
     } catch (error) {
       console.error("amazon scrapping", error);
-    }
-    if (moversCounter || newestCounter) {
-      remainingItems += moversCounter + newestCounter - count;
-    } else {
-      remainingItems -= count;
     }
   }
 
